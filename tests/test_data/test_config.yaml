@@ -1,0 +1,39 @@
+# Test configuration for Bridge GAD Generator
+
+drawing:
+  # Paper size and orientation
+  paper_size: A3
+  orientation: landscape
+  
+  # Drawing scale
+  scale: 100
+  
+bridge:
+  # Default bridge parameters
+  spans: 3
+  span_lengths: [30.0, 35.0, 30.0]  # meters
+  deck_width: 10.5  # meters
+  
+  # Girder parameters
+  num_girders: 5
+  girder_spacing: 2.5  # meters
+  girder_depth: 1.5  # meters
+  
+  # Abutment and pier parameters
+  abutment_width: 1.2  # meters
+  pier_width: 1.0  # meters
+  pier_height: 5.0  # meters
+
+output:
+  # Default output format
+  format: dxf
+  
+  # Output directory (relative to working directory)
+  directory: "output"
+  
+  # Layer names
+  layers:
+    outline: "BRIDGE_OUTLINE"
+    dimensions: "DIMENSIONS"
+    text: "TEXT"
+    centerline: "CENTERLINE"

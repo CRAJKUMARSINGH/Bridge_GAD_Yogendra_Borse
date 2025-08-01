@@ -1,0 +1,24 @@
+import pandas as pd
+
+# Create a DataFrame with test bridge data
+test_data = {
+    'Parameter': [
+        'SCALE1', 'SCALE2', 'SKEW', 'DATUM', 'TOPRL', 'LEFT', 'RIGHT', 
+        'XINCR', 'YINCR', 'NOCH', 'NSPAN', 'LBRIDGE', 'ABTL', 'RTL', 
+        'SOFL', 'KERBW', 'KERBD', 'CCBR', 'SLBTHC', 'SLBTHE', 'SLBTHT',
+        'CAPT', 'CAPB', 'CAPW', 'PIERTW', 'BATTR', 'PIERST', 'PIERN',
+        'SPAN1', 'FUTRL', 'FUTD', 'FUTW', 'FUTL', 'LASLAB', 'APWTH',
+        'APTHK', 'WCTH'
+    ],
+    'Value': [
+        100.0, 100.0, 0.0, 100.0, 105.0, 0.0, 100.0, 10.0, 1.0, 10, 3, 95.0,
+        2.5, 104.0, 103.5, 0.3, 0.3, 7.0, 0.2, 0.25, 0.15, 103.0, 102.0, 1.5,
+        1.2, 1.5, 1.0, 1, 30.0, 95.0, 0.5, 2.0, 1.5, 5.0, 8.0, 0.2, 0.075
+    ]
+}
+
+df = pd.DataFrame(test_data)
+
+# Save to Excel
+with pd.ExcelWriter('test_bridge_data.xlsx', engine='openpyxl') as writer:
+    df.to_excel(writer, index=False, sheet_name='Bridge Parameters')

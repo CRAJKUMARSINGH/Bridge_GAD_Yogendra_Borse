@@ -1,0 +1,6 @@
+
+alpha: 0.85
+beta: 0.15
+max_hops: 8
+log_level: INFO
+seed: 42

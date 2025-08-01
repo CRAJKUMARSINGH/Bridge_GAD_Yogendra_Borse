@@ -1,0 +1,7 @@
+include README.md
+include LICENSE
+include requirements.txt
+include requirements-dev.txt
+include pyproject.toml
+include config.yaml
+recursive-include tests *.py *.yaml *.xlsx
