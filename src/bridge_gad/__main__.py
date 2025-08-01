@@ -38,9 +38,23 @@ def gad(
     out: Path = typer.Option(Path("slab_bridge_gad.dxf"), help="Output DXF"),
 ):
     """Generate slab-bridge general-arrangement drawing."""
-    df = pd.read_excel(excel)
+    df = pd.read_excel(excel, engine='openpyxl')
     path = SlabBridgeGAD(df).generate(out)
     typer.echo(f"Slab-bridge GAD → {path}")
+
+@app.command("lisp")
+def lisp(
+    excel: Path = typer.Argument(..., exists=True, help="Excel file with Lisp parameters"),
+    out: Path = typer.Option(Path("lisp_bridge.dxf"), help="Output DXF file"),
+):
+    """Generate bridge GAD using Lisp parameters from Excel."""
+    from .lisp_mirror import draw_lisp_bridge
+    try:
+        output_path = draw_lisp_bridge(excel, out)
+        typer.echo(f"Lisp bridge GAD → {output_path}")
+    except Exception as e:
+        typer.echo(f"Error: {e}", err=True)
+        raise typer.Exit(1)
 
 @app.command("living")
 def living(
