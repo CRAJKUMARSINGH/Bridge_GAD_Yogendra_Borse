@@ -42,5 +42,13 @@ def gad(
     path = SlabBridgeGAD(df).generate(out)
     typer.echo(f"Slab-bridge GAD → {path}")
 
-if __name__ == '__main__':
+@app.command("living")
+def living(
+    excel: Path = typer.Argument(..., exists=True, help="Excel file with spans"),
+):
+    """Launch interactive 3-D web GAD."""
+    from .living_gad import run_living_gad
+    run_living_gad(excel)
+
+if __name__ == "__main__":
     app(prog_name="bridge-gad")
