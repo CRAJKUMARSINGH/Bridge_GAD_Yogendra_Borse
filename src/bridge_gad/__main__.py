@@ -1,32 +1,46 @@
 import logging
 import sys
+import random
 from pathlib import Path
 
 import typer
+import pandas as pd
 
 from .config import Settings
 from .core import compute_load
+from .drawing import SlabBridgeGAD
 
 app = typer.Typer()
 
-@app.command(name="run")
-def run(config: str = "config.yaml"):
-    """Bridge-GAD runner."""
-    cfg = Settings.from_yaml(Path(config))
+@app.command()
+def run(
+    config: Path = typer.Option('config.yaml', '--config', '-c', exists=True),
+):
+    """Run Bridge-GAD with the given YAML config."""
+    cfg = Settings.from_yaml(config)
     logging.basicConfig(
         level=cfg.log_level,
-        format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
+        format='%(asctime)s [%(levelname)s] %(name)s: %(message)s',
         stream=sys.stderr,
     )
-    import random
     random.seed(cfg.seed)
 
-    nodes = ["A", "B", "C", "D"]  # demo data
+    nodes = ['A', 'B', 'C', 'D']  # demo data
     demand = [10, 20, 5, 15]
 
     result = compute_load(nodes, demand, cfg)
     for node, load in result:
-        typer.echo(f"{node}: {load}")
+        typer.echo(f'{node}: {load}')
 
-if __name__ == "__main__":
+@app.command("gad")
+def gad(
+    excel: Path = typer.Argument(..., exists=True, help="Excel file with spans"),
+    out: Path = typer.Option(Path("slab_bridge_gad.dxf"), help="Output DXF"),
+):
+    """Generate slab-bridge general-arrangement drawing."""
+    df = pd.read_excel(excel)
+    path = SlabBridgeGAD(df).generate(out)
+    typer.echo(f"Slab-bridge GAD → {path}")
+
+if __name__ == '__main__':
     app(prog_name="bridge-gad")
