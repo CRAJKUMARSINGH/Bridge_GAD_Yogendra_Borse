@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
@@ -185,3 +186,7 @@ htmlcov/
 .Trashes
 ehthumbs.db
 Thumbs.db
+=======
+"LispNotesElevation/tsconfig.json" 
+"LispNotesElevation/vite.config.ts" 
+>>>>>>> a1ba79c9a3cdd897f3aaef1d3b7fd71743a3ea74

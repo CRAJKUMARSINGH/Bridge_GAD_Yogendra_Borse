@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 [build-system]
 requires = ["setuptools>=64", "wheel"]
 build-backend = "setuptools.build_meta"
@@ -16,3 +17,34 @@ dependencies = [
 
 [project.scripts]
 bridge-gad = "bridge_gad.__main__:app"
+=======
+[project]
+name = "bridge-drawing-app"
+version = "0.1.0"
+description = "A Python application to draw bridge layouts with Pygame, outputting to DXF and PDF"
+readme = "README.md"
+authors = [
+    { name = "Your Name", email = "your.email@example.com" }
+]
+license = { text = "MIT" }
+requires-python = ">=3.8"
+dependencies = [
+    "pygame>=2.5.2",
+    "ezdxf>=1.3.2",
+    "reportlab>=4.2.2"
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.4.0",
+    "pytest-cov>=4.0.0"
+]
+
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project.urls]
+"Homepage" = "https://github.com/yourusername/bridge-drawing-app"
+"Source" = "https://github.com/yourusername/bridge-drawing-app"
+>>>>>>> a1ba79c9a3cdd897f3aaef1d3b7fd71743a3ea74

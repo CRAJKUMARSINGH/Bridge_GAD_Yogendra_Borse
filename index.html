@@ -1,0 +1,317 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Bridge Drawing Application</title>
+    <link rel="stylesheet" href="https://pyscript.net/releases/2025.2.1/core.css" />
+    <script defer src="https://pyscript.net/releases/2025.2.1/core.js"></script>
+    <style>
+        body {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background-color: #f0f0f0;
+        }
+        canvas {
+            border: 2px solid #333;
+            background-color: white;
+        }
+        .controls {
+            margin-top: 20px;
+            padding: 10px;
+            background-color: #fff;
+            border-radius: 5px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        }
+        .controls input {
+            margin: 5px;
+            padding: 5px;
+            width: 100px;
+        }
+    </style>
+</head>
+<body>
+    <canvas id="bridgeCanvas" width="1200" height="800"></canvas>
+    <div class="controls">
+        <input type="number" id="spanLength" value="50.0" step="1.0"> Span Length (m)
+        <input type="number" id="skewAngle" value="15.0" step="1.0"> Skew Angle (°)
+        <input type="number" id="pierWidth" value="1.5" step="0.1"> Pier Width (m)
+        <button onclick="pyscript.runtime.globals.get('update_parameters')()">Update</button>
+        <button onclick="pyscript.runtime.globals.get('export_drawing')()">Export</button>
+    </div>
+
+    <script type="py-game" target="bridgeCanvas">
+import asyncio
+import platform
+import pygame
+import math
+import js
+from io import StringIO
+
+# Initialize Pygame
+pygame.init()
+WIDTH, HEIGHT = 1200, 800
+screen = pygame.display.set_mode((WIDTH, HEIGHT))
+pygame.display.set_caption("Bridge Drawing Application")
+clock = pygame.time.Clock()
+FPS = 60
+
+# Colors
+WHITE = (255, 255, 255)
+BLACK = (0, 0, 0)
+GRAY = (128, 128, 128)
+RED = (255, 0, 0)
+BLUE = (0, 0, 255)
+CYAN = (0, 255, 255)
+DARK_GRAY = (64, 64, 64)
+LIGHT_GRAY = (192, 192, 192)
+
+# Font
+font = pygame.font.SysFont("arial", 16)
+
+class BridgeParameters:
+    def __init__(self):
+        self.scale1 = 1.0
+        self.scale2 = 1.0
+        self.skew = 15.0
+        self.datum = 100.0
+        self.toprl = 110.0
+        self.left = 0.0
+        self.right = 100.0
+        self.xincr = 10.0
+        self.yincr = 1.0
+        self.nspan = 1
+        self.lbridge = 100.0
+        self.abtl = 0.0
+        self.RTL = 105.0
+        self.Sofl = 104.0
+        self.kerbw = 1.0
+        self.kerbd = 0.5
+        self.ccbr = 8.0
+        self.capt = 103.0
+        self.capb = 102.5
+        self.capw = 2.0
+        self.piertw = 1.5
+        self.battr = 12.0
+        self.pierst = 10.0
+        self.span1 = 50.0
+        self.futrl = 99.0
+        self.futd = 1.0
+        self.futw = 3.0
+        self.futl = 5.0
+        self.slbthc = 0.3
+        self.slbthe = 0.25
+        self.cs_data = [(0.0, 100.5), (20.0, 101.0), (40.0, 100.8), (60.0, 101.2), (80.0, 100.7)]
+        self.init_derived()
+
+    def init_derived(self):
+        self.skew1 = self.skew * 0.0174532
+        self.s = math.sin(self.skew1)
+        self.c = math.cos(self.skew1)
+        self.tn = self.s / self.c if self.c != 0 else 0
+        self.sc = self.scale1 / self.scale2
+        self.spane = self.abtl + self.span1
+        self.RTL2 = self.RTL - 30 * self.sc
+        self.ccbrsq = self.ccbr / self.c if self.c != 0 else self.ccbr
+        self.kerbwsq = self.kerbw / self.c if self.c != 0 else self.kerbw
+        self.abtlen = self.ccbrsq + 2 * self.kerbwsq
+
+class CoordinateTransform:
+    def __init__(self, bridge_params):
+        self.bridge = bridge_params
+        self.vvs = 50.0
+        self.hhs = 50.0
+        self.pan_x = 0
+        self.pan_y = 0
+        self.zoom = 1.0
+
+    def vpos(self, a):
+        return (self.vvs * (a - self.bridge.datum) + self.pan_y) * self.zoom
+
+    def hpos(self, a):
+        return (self.hhs * (a - self.bridge.left) + self.pan_x) * self.zoom
+
+    def pt(self, a, b):
+        return (self.hpos(a), self.vpos(b))
+
+class BridgeDrawer:
+    def __init__(self, bridge_params, coords):
+        self.bridge = bridge_params
+        self.coords = coords
+        self.view_mode = "elevation"  # Can be "elevation", "plan", "cross_section", "pier_section"
+
+    def draw_layout(self, screen):
+        screen.fill(WHITE)
+        x_axis = [self.coords.pt(self.bridge.left, self.bridge.datum)[0], 
+                 self.coords.pt(self.bridge.right, self.bridge.datum)[0]]
+        y_axis = [self.coords.pt(self.bridge.left, self.bridge.datum)[1], 
+                 self.coords.pt(self.bridge.left, self.bridge.toprl)[1]]
+        
+        pygame.draw.line(screen, BLACK, (x_axis[0], y_axis[0]), (x_axis[1], y_axis[0]), 2)
+        pygame.draw.line(screen, BLACK, (x_axis[0], y_axis[0]), (x_axis[0], y_axis[1]), 2)
+
+        for x in range(int(self.bridge.left), int(self.bridge.right) + int(self.bridge.xincr), int(self.bridge.xincr)):
+            x_pos = self.coords.hpos(x)
+            pygame.draw.line(screen, GRAY, (x_pos, y_axis[0]), (x_pos, y_axis[1]), 1)
+
+        for y in range(int(self.bridge.datum), int(self.bridge.toprl) + int(self.bridge.yincr), int(self.bridge.yincr)):
+            y_pos = self.coords.vpos(y)
+            pygame.draw.line(screen, GRAY, (x_axis[0], y_pos), (x_axis[1], y_pos), 1)
+
+        title = font.render(f"Bridge {self.view_mode.capitalize()} View", True, BLACK)
+        screen.blit(title, (10, 10))
+
+    def draw_cross_section(self, screen):
+        if not self.bridge.cs_data:
+            return
+        points = [self.coords.pt(x, y) for x, y in self.bridge.cs_data]
+        if len(points) > 1:
+            pygame.draw.lines(screen, BLUE, False, points, 2)
+            water_level = self.coords.vpos(max(y for _, y in self.bridge.cs_data) + 1)
+            pygame.draw.line(screen, CYAN, (0, water_level), (WIDTH, water_level), 2)
+
+    def draw_pier_elevation(self, screen):
+        ss_left, ss_bottom = self.coords.pt(self.bridge.abtl, self.bridge.Sofl)
+        ss_right, ss_top = self.coords.pt(self.bridge.spane, self.bridge.RTL)
+        pygame.draw.rect(screen, RED, (ss_left, ss_top, ss_right - ss_left, ss_bottom - ss_top), 2)
+
+        cap_center = self.bridge.spane
+        cap_width = self.bridge.capw / self.bridge.c
+        cap_left, cap_bottom = self.coords.pt(cap_center - cap_width/2, self.bridge.capb)
+        cap_right, cap_top = self.coords.pt(cap_center + cap_width/2, self.bridge.capt)
+        pygame.draw.rect(screen, LIGHT_GRAY, (cap_left, cap_top, cap_right - cap_left, cap_bottom - cap_top))
+
+        pier_top_width = self.bridge.piertw / self.bridge.c
+        pier_height = self.bridge.capb - (self.bridge.futrl + self.bridge.futd)
+        pier_bottom_width = pier_top_width + 2 * (pier_height / self.bridge.battr)
+        
+        pier_left_top, pier_top_y = self.coords.pt(cap_center - pier_top_width/2, self.bridge.capb)
+        pier_left_bottom, pier_bottom_y = self.coords.pt(cap_center - pier_bottom_width/2, self.bridge.futrl + self.bridge.futd)
+        pier_right_top = self.coords.hpos(cap_center + pier_top_width/2)
+        pier_right_bottom = self.coords.hpos(cap_center + pier_bottom_width/2)
+        
+        pier_points = [
+            (pier_left_top, pier_top_y),
+            (pier_left_bottom, pier_bottom_y),
+            (pier_right_bottom, pier_bottom_y),
+            (pier_right_top, pier_top_y)
+        ]
+        pygame.draw.polygon(screen, GRAY, pier_points)
+
+        footing_left, footing_top = self.coords.pt(cap_center - self.bridge.futw/(2*self.bridge.c), self.bridge.futrl)
+        footing_width = self.coords.hpos(cap_center + self.bridge.futw/(2*self.bridge.c)) - footing_left
+        footing_height = self.coords.vpos(self.bridge.futrl + self.bridge.futd) - footing_top
+        pygame.draw.rect(screen, DARK_GRAY, (footing_left, footing_top, footing_width, footing_height))
+
+    def draw_pier_plan(self, screen):
+        yc = -30.0
+        pier_center = self.bridge.spane
+        footing_width = self.bridge.futw
+        footing_length = self.bridge.futl
+        footing_left, footing_bottom = self.coords.pt(pier_center - footing_width/2, yc - footing_length/2)
+        footing_right = self.coords.hpos(pier_center + footing_width/2)
+        footing_top = self.coords.vpos(yc + footing_length/2)
+        pygame.draw.rect(screen, LIGHT_GRAY, (footing_left, footing_top, footing_right - footing_left, footing_bottom - footing_top))
+
+        pier_width = self.bridge.piertw
+        pier_length = self.bridge.pierst
+        pier_left = self.coords.hpos(pier_center - pier_width/2)
+        pier_right = self.coords.hpos(pier_center + pier_width/2)
+        pier_bottom = self.coords.vpos(yc - pier_length/2)
+        pier_top = self.coords.vpos(yc + pier_length/2)
+        pygame.draw.rect(screen, RED, (pier_left, pier_top, pier_right - pier_left, pier_bottom - pier_top), 2)
+
+    def draw_pier_section(self, screen):
+        slab_width = self.bridge.ccbr + 2 * self.bridge.kerbw
+        slab_left, slab_bottom = self.coords.pt(-slab_width/2, self.bridge.RTL2 - self.bridge.slbthc)
+        slab_right = self.coords.hpos(slab_width/2)
+        slab_top = self.coords.vpos(self.bridge.RTL2)
+        pygame.draw.rect(screen, LIGHT_GRAY, (slab_left, slab_top, slab_right - slab_left, slab_bottom - slab_top))
+
+        kerb_left, kerb_top = self.coords.pt(-slab_width/2, self.bridge.RTL2 + self.bridge.kerbd)
+        kerb_width = self.coords.hpos(-slab_width/2 + self.bridge.kerbw) - kerb_left
+        pygame.draw.rect(screen, GRAY, (kerb_left, kerb_top, kerb_width, -self.coords.vpos(self.bridge.RTL2)))
+
+        kerb_right = self.coords.hpos(slab_width/2 - self.bridge.kerbw)
+        pygame.draw.rect(screen, GRAY, (kerb_right, kerb_top, kerb_width, -self.coords.vpos(self.bridge.RTL2)))
+
+        pier_width = self.bridge.piertw
+        pier_left, pier_top = self.coords.pt(-pier_width/2, self.bridge.capb)
+        pier_height = self.coords.vpos(self.bridge.futrl + self.bridge.futd) - pier_top
+        pygame.draw.rect(screen, DARK_GRAY, (pier_left, pier_top, self.coords.hpos(pier_width/2) - pier_left, pier_height))
+
+        footing_width = self.bridge.futw
+        footing_left, footing_top = self.coords.pt(-footing_width/2, self.bridge.futrl)
+        footing_height = self.coords.vpos(self.bridge.futrl + self.bridge.futd) - footing_top
+        pygame.draw.rect(screen, BLACK, (footing_left, footing_top, self.coords.hpos(footing_width/2) - footing_left, footing_height))
+
+# Initialize components
+bridge = BridgeParameters()
+coords = CoordinateTransform(bridge)
+drawer = BridgeDrawer(bridge, coords)
+
+def update_parameters():
+    try:
+        bridge.span1 = float(js.document.getElementById("spanLength").value)
+        bridge.skew = float(js.document.getElementById("skewAngle").value)
+        bridge.piertw = float(js.document.getElementById("pierWidth").value)
+        bridge.init_derived()
+    except:
+        pass
+
+def export_drawing():
+    output = StringIO()
+    output.write(f"Bridge Drawing Export\n")
+    output.write(f"Span Length: {bridge.span1}m\n")
+    output.write(f"Skew Angle: {bridge.skew}°\n")
+    output.write(f"Pier Width: {bridge.piertw}m\n")
+    element = js.document.createElement("a")
+    element.setAttribute("href", "data:text/plain;charset=utf-8," + encodeURIComponent(output.getvalue()))
+    element.setAttribute("download", "bridge_drawing.txt")
+    element.click()
+
+async def main():
+    running = True
+    while running:
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                running = False
+            elif event.type == pygame.MOUSEBUTTONDOWN:
+                if event.button == 4:  # Scroll up
+                    coords.zoom *= 1.1
+                elif event.button == 5:  # Scroll down
+                    coords.zoom /= 1.1
+            elif event.type == pygame.MOUSEMOTION and event.buttons[0]:
+                coords.pan_x += event.rel[0]
+                coords.pan_y += event.rel[1]
+            elif event.type == pygame.KEYDOWN:
+                if event.key == pygame.K_1:
+                    drawer.view_mode = "elevation"
+                elif event.key == pygame.K_2:
+                    drawer.view_mode = "plan"
+                elif event.key == pygame.K_3:
+                    drawer.view_mode = "cross_section"
+                elif event.key == pygame.K_4:
+                    drawer.view_mode = "pier_section"
+
+        drawer.draw_layout(screen)
+        if drawer.view_mode == "elevation":
+            drawer.draw_pier_elevation(screen)
+        elif drawer.view_mode == "plan":
+            drawer.draw_pier_plan(screen)
+        elif drawer.view_mode == "cross_section":
+            drawer.draw_cross_section(screen)
+        elif drawer.view_mode == "pier_section":
+            drawer.draw_pier_section(screen)
+
+        pygame.display.flip()
+        clock.tick(FPS)
+        await asyncio.sleep(1.0 / FPS)
+
+# Run the main loop
+asyncio.ensure_future(main())
+    </script>
+</body>
+</html>

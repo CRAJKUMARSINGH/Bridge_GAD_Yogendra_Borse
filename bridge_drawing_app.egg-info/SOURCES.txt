@@ -1,0 +1,7 @@
+app.py
+pyproject.toml
+bridge_drawing_app.egg-info/PKG-INFO
+bridge_drawing_app.egg-info/SOURCES.txt
+bridge_drawing_app.egg-info/dependency_links.txt
+bridge_drawing_app.egg-info/requires.txt
+bridge_drawing_app.egg-info/top_level.txt
