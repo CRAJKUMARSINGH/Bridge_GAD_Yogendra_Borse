@@ -206,7 +206,7 @@ def layout(screen=None, doc=None, pdf=None):
             text = font.render(f"{lvl:.3f}", True, BLACK)
             screen.blit(text, (pta1[0] - 40, pta1[1] - 8))
         if doc:
-            msp.add_text(f"{lvl:.3f}", dxfattrib={'height': 2.5}).set_placement((pta1[0] - 40, pta1[1] - 2.5))
+            msp.add_text(f"{lvl:.3f}", dxfattribs={'height': 2.5}).set_placement((pta1[0] - 40, pta1[1] - 2.5))
         if pdf:
             pdf.drawString((pta1[0] - 40)/mm, (pta1[1] - 2)/mm, f"{lvl:.3f}")
         if i > 0:
@@ -662,6 +662,56 @@ def handle_input(event):
         elif event.unicode.isprintable():
             input_text += event.unicode
 
+def render_input_screen():
+    """Render the input screen."""
+    screen.fill(WHITE)
+    
+    # Title
+    title_text = font.render("Bridge GAD Generator - Input Mode", True, BLACK)
+    screen.blit(title_text, (50, 50))
+    
+    # Current input field
+    if input_field < len(input_labels):
+        label = input_labels[input_field]
+        text = font.render(f"{label}{input_text}", True, BLACK)
+        screen.blit(text, (50, 100))
+    
+    # Display entered data
+    y_offset = 150
+    for i, data in enumerate(input_data):
+        if i < 15:  # Limit display to avoid overflow
+            text = font.render(f"{i+1}: {data}", True, GRAY)
+            screen.blit(text, (50, y_offset))
+            y_offset += 25
+
+def render_drawing():
+    """Render the bridge drawing."""
+    screen.fill(WHITE)
+    
+    # Draw the bridge components
+    init_derived()
+    layout(screen=screen)
+    cs(screen=screen)
+    pier(screen=screen)
+    abt1(screen=screen)
+    
+    # Draw controls info
+    controls = [
+        "Controls:",
+        "Mouse wheel: Zoom",
+        "Mouse drag: Pan", 
+        "R: Reset view",
+        "I: Input mode",
+        "D: Save DXF",
+        "P: Save PDF"
+    ]
+    
+    y_offset = 20
+    for control in controls:
+        text = font.render(control, True, BLACK)
+        screen.blit(text, (10, y_offset))
+        y_offset += 20
+
 def update_loop():
     global zoom, pan_x, pan_y, input_mode
     mouse_dragging = False
@@ -731,43 +781,3 @@ else:
     if __name__ == "__main__":
         asyncio.run(main())
 
-
-
-
-
-def render_parameter_panel():
-    """Render parameter input panel"""
-    panel_width = 300
-    pygame.draw.rect(screen, (240, 240, 240), 
-                    (WIDTH - panel_width, 0, panel_width, HEIGHT))
-    
-    y_offset = 20
-    for i, (label, value) in enumerate(bridge_parameters.items()):
-        text = font.render(f"{label}: {value}", True, BLACK)
-        screen.blit(text, (WIDTH - panel_width + 10, y_offset))
-        y_offset += 25
-class BridgeDataParser:
-    def __init__(self):
-        self.bridge_data = {}
-    
-    def parse_gad_file(self, file_path):
-        """Parse GAD text file with bridge parameters"""
-        with open(file_path, 'r') as f:
-            lines = f.readlines()
-        
-        # Parse according to your LISP structure
-        self.bridge_data = {
-            'scale1': float(lines[0].strip()),
-            'scale2': float(lines[1].strip()),
-            'skew': float(lines[2].strip()),
-            'datum': int(lines[3].strip()),
-            'toprl': int(lines[4].strip()),
-            # ... continue parsing
-        }
-        return self.bridge_data
-    
-    def get_cross_section_data(self):
-        """Extract cross-section points"""
-        # Parse your cross-section data format
-        pass
-                   

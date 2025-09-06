@@ -8,6 +8,7 @@ import tempfile
 from bridge_gad import __version__
 from bridge_gad.config import Settings
 from bridge_gad.core import compute_load
+from bridge_gad.drawing import BridgeDrawing, generate_bridge_drawing
 
 
 def test_version():

@@ -5,10 +5,11 @@ from typing import List
 import ezdxf
 import pandas as pd
 from ezdxf.math import Vec2
+from .config import Settings
 
 class BridgeDrawing:
-    def __init__(self, config=None):
-        self.config = config
+    def __init__(self, settings=None):
+        self.settings = settings or Settings()
 
 def generate_bridge_drawing(*, excel_file: Path, output_path: Path) -> Path:
     df = pd.read_excel(excel_file)
@@ -34,7 +35,15 @@ class SlabBridgeGAD:
             L = float(row["Length (m)"])
             W = float(row["Width (m)"])
             T = float(row["Thickness (m)"])
-            P = float(row["Pier_Width (m)"])
+            # Handle both possible column names for pier width
+            pier_width_cols = ["Pier_Width (m)", "Pier\\_Width (m)", "Pier Width (m)"]
+            P = None
+            for col in pier_width_cols:
+                if col in row:
+                    P = float(row[col])
+                    break
+            if P is None:
+                P = 1.0  # Default pier width
 
             # deck slab rectangle (top view)
             p1 = Vec2(x_cursor, 0)

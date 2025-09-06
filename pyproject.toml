@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "bridge-gad"
 version = "0.2.0"
-description = "Load-balancer migration from Lisp → Python"
+description = "Bridge General Arrangement Drawing Generator"
 readme = "README.md"
 requires-python = ">=3.9"
 dependencies = [
@@ -15,6 +15,13 @@ dependencies = [
     "ezdxf>=1.1.0",
     "pandas>=2.0.0",
     "openpyxl>=3.0.0",
+    "fastapi>=0.100.0",
+    "uvicorn[standard]>=0.23.0",
+    "python-multipart>=0.0.6",
+    "matplotlib>=3.7.0",
+    "reportlab>=4.0.0",
+    "pillow>=10.0.0",
+    "cairosvg>=2.7.0",
 ]
 
 [project.scripts]

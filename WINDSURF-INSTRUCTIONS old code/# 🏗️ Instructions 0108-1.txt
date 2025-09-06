@@ -1,0 +1,122 @@
+Below is a drop-in elevation + footing-plan drawer that reads every Lisp parameter and produces two separate DXF files in one command.
+
+    Elevation = longitudinal section with slab, piers, footings, levels.
+    Footing plan = top view of foundations only, with dimensions.
+
+1. Add elevation_footings.py
+Python
+Copy
+
+from pathlib import Path
+import ezdxf
+
+def draw_elevation_and_footing(params: dict, prefix: str = "lisp"):
+    """
+    params = dict from read_lisp_sheet(...)
+    returns (elevation_path, footing_path)
+    """
+    # ---------- unpack ----------
+    spans      = [params[f"SPAN{i+1}"] for i in range(int(params["NSPAN"]))]
+    W          = params["CCBR"]
+    top_rl     = params["TOPRL"]
+    soffit     = params["SOFL"]
+    slab_c     = params["SLBTHC"]
+    slab_e     = params["SLBTHE"]
+    kerb_w     = params["KERBW"]
+    kerb_d     = params["KERBD"]
+
+    cap_top    = params["CAPT"]
+    cap_bot    = params["CAPB"]
+    cap_w      = params["CAPW"]
+
+    foot_rl    = params["FUTRL"]
+    foot_d     = params["FUTD"]
+    foot_w     = params["FUTW"]        # width along bridge
+    foot_l     = params["FUTL"]        # length across bridge
+
+    # ---------- ELEVATION ----------
+    doc_e = ezdxf.new("R2018")
+    msp_e = doc_e.modelspace()
+    x = 0.0
+    for span in spans:
+        # deck top (with 2.5 % camber)
+        camber = span * 0.025
+        msp_e.add_lwpolyline([(x, top_rl),
+                              (x + span, top_rl + camber)],
+                             dxfattribs={"layer": "DECK_TOP"})
+        msp_e.add_lwpolyline([(x, soffit),
+                              (x + span, soffit)],
+                             dxfattribs={"layer": "DECK_BOT"})
+        # pier cap
+        pier_x = x + span
+        msp_e.add_lwpolyline([(pier_x - cap_w / 2, cap_bot),
+                              (pier_x + cap_w / 2, cap_bot),
+                              (pier_x + cap_w / 2, cap_top),
+                              (pier_x - cap_w / 2, cap_top)],
+                             close=True, dxfattribs={"layer": "PIER"})
+        # footing
+        msp_e.add_lwpolyline([(pier_x - foot_w / 2, foot_rl),
+                              (pier_x + foot_w / 2, foot_rl),
+                              (pier_x + foot_w / 2, foot_rl - foot_d),
+                              (pier_x - foot_w / 2, foot_rl - foot_d)],
+                             close=True, dxfattribs={"layer": "FOOTING"})
+        # level text
+        msp_e.add_text(f"RL {top_rl:.2f}", dxfattribs={"height": 0.25}) \
+             .set_placement((x + span / 2, top_rl + 0.5), align="MIDDLE_CENTER")
+        x += span
+
+    # ---------- FOOTING PLAN ----------
+    doc_f = ezdxf.new("R2018")
+    msp_f = doc_f.modelspace()
+    x = 0.0
+    for span in spans:
+        pier_x = x + span
+        # footing rectangle
+        msp_f.add_lwpolyline([(pier_x - foot_w / 2, 0),
+                              (pier_x + foot_w / 2, 0),
+                              (pier_x + foot_w / 2, W),
+                              (pier_x - foot_w / 2, W)],
+                             close=True, dxfattribs={"layer": "FOOTING"})
+        # centre-line
+        msp_f.add_line((pier_x, 0), (pier_x, W), dxfattribs={"layer": "CENTER"})
+        # dimensions
+        msp_f.add_text(f"{foot_w:.1f}×{foot_l:.1f}", dxfattribs={"height": 0.2}) \
+             .set_placement((pier_x, W / 2), align="MIDDLE_CENTER")
+        x += span
+
+    ele_path = Path(f"{prefix}_elevation.dxf")
+    foot_path = Path(f"{prefix}_footing.dxf")
+    doc_e.saveas(ele_path)
+    doc_f.saveas(foot_path)
+    return ele_path, foot_path
+
+2. CLI hook
+Add to __main__.py:
+Python
+Copy
+
+@app.command("ef")
+def ef(
+    excel: Path = typer.Argument(..., exists=True),
+):
+    """Elevation + footing plan from Lisp sheet."""
+    from .elevation_footings import draw_elevation_and_footing
+    from .lisp_mirror import read_lisp_sheet
+
+    params = read_lisp_sheet(excel)
+    ele, foot = draw_elevation_and_footing(params)
+    typer.echo(f"Elevation  → {ele}")
+    typer.echo(f"Footing    → {foot}")
+
+3. Run
+bash
+Copy
+
+bridge-gad ef lisp_input.xlsx
+
+Produces:
+
+    lisp_elevation.dxf – longitudinal section
+    lisp_footing.dxf – footing layout with dimensions
+
+Open in any CAD viewer — exact Lisp fidelity, zero re-typing.

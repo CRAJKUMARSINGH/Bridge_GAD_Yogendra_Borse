@@ -1,7 +1,11 @@
 """Optimization module for Bridge GAD Generator."""
 
+from dataclasses import dataclass
+from typing import List, Dict, Any, Optional
+import numpy as np
+from scipy.optimize import minimize
+
 from .config import Settings
-from .drawing import BridgeDrawing
 
 
 @dataclass

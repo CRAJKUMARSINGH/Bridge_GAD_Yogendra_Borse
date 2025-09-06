@@ -15,8 +15,7 @@ import shutil
 # Import the main application functionality
 from . import __version__
 from .config import Settings, load_settings
-from .__main__ import app as cli_app
-import typer
+from .core import generate_bridge_drawing
 
 # Create FastAPI app
 app = FastAPI(
@@ -94,28 +93,23 @@ async def predict(
         if config_path:
             args.extend(["--config", str(config_path)])
         
-        # Call the CLI app
+        # Generate the drawing
         try:
-            # Use Typer's testing utilities to call our CLI
-            from typer.testing import CliRunner
-            runner = CliRunner()
-            result = runner.invoke(cli_app, args[1:])  # Skip the script name
-            
-            if result.exit_code != 0:
-                raise HTTPException(
-                    status_code=400,
-                    detail=f"Error generating drawing: {result.output}"
-                )
+            result_path = generate_bridge_drawing(
+                excel_file=excel_path,
+                config_file=config_path,
+                output_path=output_path
+            )
             
             # Return the generated file
-            if not output_path.exists():
+            if not result_path.exists():
                 raise HTTPException(
                     status_code=500,
                     detail="Drawing generation failed - no output file was created"
                 )
                 
             return FileResponse(
-                output_path,
+                result_path,
                 media_type=f"application/{output_format}",
                 filename=f"bridge_drawing.{output_format}"
             )
