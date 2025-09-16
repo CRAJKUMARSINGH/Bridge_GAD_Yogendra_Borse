@@ -1,0 +1,7 @@
+bridge:
+  output_format: pdf
+  scale: 100
+drawing:
+  layers: true
+  title: Medium Bridge Test
+  units: mm

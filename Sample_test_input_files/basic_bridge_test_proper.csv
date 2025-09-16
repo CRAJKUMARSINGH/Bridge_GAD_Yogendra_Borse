@@ -1,0 +1,29 @@
+Parameter,Value,Description
+NSPAN,2,Number of spans
+LBRIDGE,30,Total bridge length (m)
+ABTL,0,Left abutment chainage
+RTL,110,Right top level (RL)
+SOFL,108,Soffit level (RL)
+KERBW,0.5,Kerb width (m)
+KERBD,0.15,Kerb depth (m)
+CCBR,7.5,Clear carriageway width (m)
+SLBTHC,0.5,Slab thickness at center (m)
+SLBTHE,0.3,Slab thickness at edge (m)
+SLBTHT,0.15,Slab thickness at tip (m)
+CAPT,106,Pier cap top RL
+CAPB,105,Pier cap bottom RL
+CAPW,2.0,Pier cap width (m)
+PIERTW,1.0,Pier top width (m)
+BATTR,12,Pier batter ratio
+PIERST,3.0,Pier straight length (m)
+PIERN,1,Pier number for cross-section
+SPAN1,15,First span length (m)
+FUTRL,95,Foundation RL
+FUTD,1.5,Foundation depth (m)
+FUTW,3.0,Foundation width (m)
+FUTL,4.0,Foundation length (m)
+SPAN2,15,Second span length (m)
+FUTRL2,95,Foundation RL for pier 2
+FUTD2,1.5,Foundation depth for pier 2 (m)
+FUTW2,3.0,Foundation width for pier 2 (m)
+FUTL2,4.0,Foundation length for pier 2 (m)
