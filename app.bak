@@ -158,7 +158,6 @@ def layout(screen=None, doc=None, pdf=None):
         pygame.draw.line(screen, BLACK, ptc1, ptd1, 2)
     if doc:
         msp = doc.modelspace()
-setup_dxf_layers(doc)
         msp.add_line(pta1, pta2)
         msp.add_line(ptb1, ptb2)
         msp.add_line(ptc1, ptc2)
@@ -270,7 +269,6 @@ def cs(screen=None, doc=None, pdf=None):
             screen.blit(text, (pta2[0], pta2[1] - 20))
         if doc:
             msp = doc.modelspace()
-setup_dxf_layers(doc)
             msp.add_text(b2, dxfattribs={'height': 2.5, 'rotation': 90}).set_placement((pta2[0], pta2[1] - 5))
         if pdf:
             pdf.saveState()
@@ -338,7 +336,6 @@ def pier(screen=None, doc=None, pdf=None):
         pygame.draw.rect(screen, BLACK, (pta1[0], min(pta1[1], pta2[1]), pta2[0] - pta1[0], abs(pta2[1] - pta1[1])), 1)
     if doc:
         msp = doc.modelspace()
-setup_dxf_layers(doc)
         msp.add_lwpolyline([pta1, (pta2[0], pta1[1]), pta2, (pta1[0], pta2[1]), pta1], close=True)
     if pdf:
         pdf.setLineWidth(1)
@@ -522,7 +519,6 @@ def abt1(screen=None, doc=None, pdf=None):
         pygame.draw.line(screen, BLACK, pt15, pt14, 1)
     if doc:
         msp = doc.modelspace()
-setup_dxf_layers(doc)
         msp.add_lwpolyline(points, close=True)
         msp.add_line(pt13, pt4)
         msp.add_line(pt10, pt7)
@@ -785,110 +781,3 @@ else:
     if __name__ == "__main__":
         asyncio.run(main())
 
-
-
-# Enhanced DXF functions
-
-def setup_dxf_layers(doc):
-    """Setup professional DXF layers"""
-    layers = [
-        ("GRID", 8, "Grid lines and axes"),
-        ("STRUCTURE", 1, "Main structural elements"),
-        ("DIMENSIONS", 6, "Dimension lines and text"),
-        ("ANNOTATIONS", 3, "Text and labels"),
-        ("CENTERLINES", 4, "Center lines"),
-        ("HATCHING", 9, "Section hatching"),
-        ("DETAILS", 2, "Detail elements"),
-        ("FOUNDATION", 5, "Foundation elements")
-    ]
-    
-    for name, color, description in layers:
-        layer = doc.layers.new(name=name)
-        layer.dxf.color = color
-        layer.description = description
-
-def add_bridge_deck(msp, left, right, rtl, ccbr, scale, layer="STRUCTURE"):
-    """Add bridge deck to DXF"""
-    deck_width = ccbr
-    deck_left = left - deck_width/2
-    deck_right = right + deck_width/2
-    
-    # Main deck rectangle
-    deck_points = [
-        (hpos(deck_left, left, scale), vpos(rtl, 100, scale)),
-        (hpos(deck_right, left, scale), vpos(rtl, 100, scale)),
-        (hpos(deck_right, left, scale), vpos(rtl-0.2, 100, scale)),
-        (hpos(deck_left, left, scale), vpos(rtl-0.2, 100, scale))
-    ]
-    
-    msp.add_lwpolyline(deck_points, close=True, dxfattribs={'layer': layer})
-
-def add_pier(msp, ch, datum, rtl, pier_width, scale, layer="STRUCTURE"):
-    """Add pier to DXF"""
-    pier_left = ch - pier_width/2
-    pier_right = ch + pier_width/2
-    
-    pier_points = [
-        (hpos(pier_left, 0, scale), vpos(datum, datum, scale)),
-        (hpos(pier_right, 0, scale), vpos(datum, datum, scale)),
-        (hpos(pier_right, 0, scale), vpos(rtl, datum, scale)),
-        (hpos(pier_left, 0, scale), vpos(rtl, datum, scale))
-    ]
-    
-    msp.add_lwpolyline(pier_points, close=True, dxfattribs={'layer': layer})
-
-
-# Enhanced Excel processing
-
-def process_excel_parameters(file_path):
-    """Enhanced Excel parameter processing"""
-    import pandas as pd
-    
-    try:
-        # Read Excel file with proper encoding
-        df = pd.read_excel(file_path, sheet_name=None, header=None)
-        
-        if 'Sheet1' not in df:
-            raise ValueError("Sheet1 not found in Excel file")
-        
-        # Process parameters
-        df_params = df['Sheet1']
-        
-        # Handle different Excel formats
-        if len(df_params.columns) >= 3:
-            df_params.columns = ['Value', 'Variable', 'Description']
-        else:
-            df_params.columns = ['Variable', 'Value']
-        
-        # Convert to dictionary
-        parameters = dict(zip(df_params['Variable'], df_params['Value']))
-        
-        # Validate essential parameters
-        required_params = ['SCALE1', 'DATUM', 'LEFT', 'RIGHT', 'RTL', 'NSPAN']
-        missing_params = [p for p in required_params if p not in parameters]
-        
-        if missing_params:
-            print(f"Warning: Missing parameters: {missing_params}")
-            
-        return parameters
-        
-    except Exception as e:
-        print(f"Error processing Excel file: {e}")
-        return create_default_parameters()
-
-def create_default_parameters():
-    """Create default parameters if Excel processing fails"""
-    return {
-        'SCALE1': 100,
-        'SCALE2': 50, 
-        'SKEW': 0,
-        'DATUM': 100,
-        'LEFT': 0,
-        'RIGHT': 100,
-        'RTL': 105,
-        'SOFL': 103,
-        'NSPAN': 3,
-        'LBRIDGE': 30,
-        'CCBR': 7.5,
-        'PIERTW': 0.8
-    }
