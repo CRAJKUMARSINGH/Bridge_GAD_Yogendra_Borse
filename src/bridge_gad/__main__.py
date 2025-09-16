@@ -61,16 +61,50 @@ def lisp(
 @app.command("generate")
 def generate(
     excel_file: Path = typer.Argument(..., exists=True, help="Excel file with bridge parameters"),
-    output: Path = typer.Option(None, "--output", "-o", help="Output DXF file path"),
+    output: Path = typer.Option(None, "--output", "-o", help="Output file path (extension determines format)"),
     config: Path = typer.Option(None, "--config", "-c", help="Configuration YAML file"),
+    formats: Optional[str] = typer.Option(None, "--formats", help="Comma-separated list of output formats (dxf,pdf,html,svg,png)"),
+    show_canvas: bool = typer.Option(False, "--canvas", help="Also create and open HTML canvas visualization"),
 ):
-    """Generate complete bridge GAD from Excel parameters."""
+    """Generate complete bridge GAD from Excel parameters with multiple format support."""
     try:
         if output is None:
             output = excel_file.parent / f"{excel_file.stem}_bridge_gad.dxf"
         
-        result_path = generate_bridge_gad(excel_file, output)
-        typer.echo(f"✅ Bridge GAD generated successfully: {result_path}")
+        # Generate the main bridge drawing first
+        from .bridge_generator import BridgeGADGenerator
+        generator = BridgeGADGenerator()
+        
+        if not generator.generate_complete_drawing(excel_file, output):
+            raise RuntimeError("Failed to generate bridge drawing")
+        
+        typer.echo(f"✅ Primary output generated: {output}")
+        
+        # Handle multiple formats if specified
+        if formats or show_canvas:
+            from .output_formats import create_multi_format_output
+            
+            format_list = []
+            if formats:
+                format_list.extend([f.strip() for f in formats.split(',')])
+            if show_canvas and 'html' not in format_list:
+                format_list.append('html')
+            
+            if format_list:
+                typer.echo(f"🔄 Creating additional formats: {', '.join(format_list)}")
+                results = create_multi_format_output(generator, output.with_suffix(''), format_list)
+                
+                for fmt, result_path in results.items():
+                    if result_path:
+                        typer.echo(f"✅ {fmt.upper()} output: {result_path}")
+                        
+                        # Open HTML canvas in browser if requested
+                        if fmt == 'html' and show_canvas:
+                            import webbrowser
+                            webbrowser.open(f'file://{result_path.absolute()}')
+                            typer.echo(f"🌐 Canvas visualization opened in browser")
+                    else:
+                        typer.echo(f"❌ Failed to create {fmt.upper()} output")
         
     except Exception as e:
         typer.echo(f"❌ Error: {e}", err=True)
@@ -95,6 +129,88 @@ def serve(
         raise typer.Exit(1)
     except Exception as e:
         typer.echo(f"❌ Error starting server: {e}", err=True)
+        raise typer.Exit(1)
+
+@app.command("canvas")
+def canvas(
+    excel_file: Path = typer.Argument(..., exists=True, help="Excel file with bridge parameters"),
+    output: Path = typer.Option(None, "--output", "-o", help="HTML output file path"),
+    open_browser: bool = typer.Option(True, "--open/--no-open", help="Open in browser automatically"),
+):
+    """Create interactive HTML canvas visualization of the bridge."""
+    try:
+        if output is None:
+            output = excel_file.parent / f"{excel_file.stem}_bridge_canvas.html"
+        
+        # Generate bridge and create canvas
+        from .bridge_generator import BridgeGADGenerator
+        from .output_formats import MultiFormatExporter
+        
+        generator = BridgeGADGenerator()
+        generator.setup_document()
+        
+        if not generator.read_variables_from_excel(excel_file):
+            raise RuntimeError("Failed to read Excel parameters")
+        
+        # Generate the drawing components
+        generator.draw_layout_and_axes()
+        generator.draw_bridge_superstructure()
+        generator.draw_piers_elevation()
+        generator.draw_abutments()
+        generator.draw_plan_view()
+        generator.add_dimensions_and_labels()
+        
+        # Export as HTML canvas
+        exporter = MultiFormatExporter(generator)
+        result_path = exporter.export(output, 'html')
+        
+        typer.echo(f"✅ Interactive canvas created: {result_path}")
+        
+        if open_browser:
+            import webbrowser
+            webbrowser.open(f'file://{result_path.absolute()}')
+            typer.echo(f"🌐 Canvas visualization opened in browser")
+        
+    except Exception as e:
+        typer.echo(f"❌ Error: {e}", err=True)
+        raise typer.Exit(1)
+
+@app.command("pdf")
+def pdf(
+    excel_file: Path = typer.Argument(..., exists=True, help="Excel file with bridge parameters"),
+    output: Path = typer.Option(None, "--output", "-o", help="PDF output file path"),
+):
+    """Generate PDF drawing of the bridge."""
+    try:
+        if output is None:
+            output = excel_file.parent / f"{excel_file.stem}_bridge_drawing.pdf"
+        
+        # Generate bridge and create PDF
+        from .bridge_generator import BridgeGADGenerator
+        from .output_formats import MultiFormatExporter
+        
+        generator = BridgeGADGenerator()
+        generator.setup_document()
+        
+        if not generator.read_variables_from_excel(excel_file):
+            raise RuntimeError("Failed to read Excel parameters")
+        
+        # Generate the drawing components
+        generator.draw_layout_and_axes()
+        generator.draw_bridge_superstructure()
+        generator.draw_piers_elevation()
+        generator.draw_abutments()
+        generator.draw_plan_view()
+        generator.add_dimensions_and_labels()
+        
+        # Export as PDF
+        exporter = MultiFormatExporter(generator)
+        result_path = exporter.export(output, 'pdf')
+        
+        typer.echo(f"✅ PDF drawing created: {result_path}")
+        
+    except Exception as e:
+        typer.echo(f"❌ Error: {e}", err=True)
         raise typer.Exit(1)
 
 @app.command("version")

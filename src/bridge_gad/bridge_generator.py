@@ -364,10 +364,10 @@ class BridgeGADGenerator:
         x3 = xc + piertwsq / 2
         y1 = self.vpos(capb)
         
-        # Bottom points (with batter)
+        # Bottom points (with batter) - pier should connect to top of footing
         x2 = x1 - offset / cos(radians(self.skew))
         x4 = x3 + offset / cos(radians(self.skew))
-        y2 = self.vpos(futrl + futd)
+        y2 = self.vpos(futrl)  # Connect to top of footing (founding level)
         
         # Draw pier outline
         points = [
@@ -380,13 +380,15 @@ class BridgeGADGenerator:
         self.msp.add_lwpolyline(points, close=True)
     
     def draw_pier_footing(self, xc: float, futw: float, futd: float, futrl: float):
-        """Draw pier footing."""
+        """Draw pier footing below ground level."""
         futwsq = futw / cos(radians(self.skew))
         
         x1 = xc - futwsq / 2
         x2 = xc + futwsq / 2
-        y1 = self.vpos(futrl)
-        y2 = self.vpos(futrl + futd)
+        # Foundation should be below ground - futrl is the founding level
+        # y1 is top of footing (founding level), y2 is bottom of footing
+        y1 = self.vpos(futrl)  # Top of footing at founding level
+        y2 = self.vpos(futrl - futd)  # Bottom of footing (subtract depth to go below)
         
         self.msp.add_lwpolyline([
             (self.hpos(x1), y1),
@@ -474,9 +476,79 @@ class BridgeGADGenerator:
     
     def draw_right_abutment(self):
         """Draw right abutment (mirrored version of left)."""
-        # Similar to left abutment but mirrored
-        # Implementation would follow the same pattern but with right-side parameters
-        logger.info("Right abutment drawn")
+        # Get abutment parameters - using right abutment specific values
+        abtl = float(self.variables.get('ABTL', 0))
+        lbridge = float(self.variables.get('LBRIDGE', 36))
+        nspan = int(self.variables.get('NSPAN', 3))
+        span1 = float(self.variables.get('SPAN1', 12))
+        
+        # Right abutment parameters
+        arcw = float(self.variables.get('ARCW', 0.75))  # Right abutment cap width
+        arcd = float(self.variables.get('ARCD', 1.2))   # Right abutment cap depth
+        arfb = float(self.variables.get('ARFB', 10))    # Right abutment front batter
+        arfbl = float(self.variables.get('ARFBL', 101)) # Right abutment front batter RL
+        artb = float(self.variables.get('ARTB', 10))    # Right abutment toe batter
+        artbl = float(self.variables.get('ARTBL', 101)) # Right abutment toe batter level
+        arfo = float(self.variables.get('ARFO', 1.5))   # Right abutment front offset
+        arfd = float(self.variables.get('ARFD', 1.0))   # Right abutment footing depth
+        arbb = float(self.variables.get('ARBB', 3))     # Right abutment back batter
+        arbbl = float(self.variables.get('ARBBL', 101)) # Right abutment back batter RL
+        
+        dwth = float(self.variables.get('DWTH', 0.3))
+        capt = float(self.variables.get('CAPT', 110))
+        rtl = float(self.variables.get('RTL', 110.98))
+        apthk = float(self.variables.get('APTHK', 0.38))
+        slbtht = float(self.variables.get('SLBTHT', 0.75))
+        
+        # Calculate right abutment position (at the end of the bridge)
+        right_abt_pos = abtl + nspan * span1
+        
+        # Calculate abutment geometry (mirrored from left)
+        x1 = right_abt_pos
+        arcwsq = arcw  # No division by c for skew adjustment here
+        x3 = x1 - arcwsq  # Subtract for right side
+        capb = capt - arcd
+        
+        p1 = (capb - arfbl) / arfb
+        x5 = x3 - p1  # Subtract for right side
+        
+        p2 = (arfbl - artbl) / artb
+        x6 = x5 - p2  # Subtract for right side
+        
+        x7 = x6 - arfo  # Subtract for right side
+        y8 = artbl - arfd
+        
+        x14 = x1 + dwth  # Add for right side (dirt wall on opposite side)
+        p3 = (capb - arbbl) / arbb
+        x12 = x14 + p3  # Add for right side
+        x10 = x12 + arfo  # Add for right side
+        
+        # Draw right abutment profile (mirrored points)
+        points = [
+            self.pt(x1, rtl + apthk - slbtht),
+            self.pt(x1, capt),
+            self.pt(x3, capt),
+            self.pt(x3, capb),
+            self.pt(x5, arfbl),
+            self.pt(x6, artbl),
+            self.pt(x7, artbl),
+            self.pt(x7, y8),
+            self.pt(x10, y8),
+            self.pt(x10, artbl),
+            self.pt(x12, artbl),
+            self.pt(x12, arbbl),
+            self.pt(x14, capb),
+            self.pt(x14, rtl + apthk - slbtht)
+        ]
+        
+        self.msp.add_lwpolyline(points, close=True)
+        
+        # Add internal lines for clarity
+        self.msp.add_line(self.pt(x14, capb), self.pt(x3, capb))
+        self.msp.add_line(self.pt(x10, artbl), self.pt(x7, artbl))
+        
+        # Draw footing in plan view
+        self.draw_abutment_footing_plan(x7, x10, "right")
     
     def draw_abutment_footing_plan(self, x_start: float, x_end: float, side: str):
         """Draw abutment footing in plan view."""
@@ -505,53 +577,141 @@ class BridgeGADGenerator:
         self.msp.add_lwpolyline(footing_points, close=True)
     
     def draw_plan_view(self):
-        """Draw plan view of piers and footings."""
+        """Draw comprehensive plan view including piers, footings, and abutments."""
         try:
-            nspan = int(self.variables.get('NSPAN', 3))
-            span1 = float(self.variables.get('SPAN1', 12))
-            abtl = float(self.variables.get('ABTL', 0))
-            futw = float(self.variables.get('FUTW', 4.5))
-            futl = float(self.variables.get('FUTL', 12))
-            piertw = float(self.variables.get('PIERTW', 1.2))
-            pierst = float(self.variables.get('PIERST', 12))
+            # Draw pier and footing plan views
+            self.draw_pier_foundation_plan()
             
-            yc = self.datum - 30.0
-            
-            for i in range(1, nspan):
-                xc = abtl + i * span1
-                
-                # Draw footing in plan
-                x1 = xc - futw / 2
-                x2 = xc + futw / 2
-                y1 = yc + futl / 2
-                y2 = yc - futl / 2
-                
-                self.msp.add_lwpolyline([
-                    self.pt(x1, y1),
-                    self.pt(x2, y1),
-                    self.pt(x2, y2),
-                    self.pt(x1, y2),
-                    self.pt(x1, y1)
-                ], close=True)
-                
-                # Draw pier in plan
-                x3 = xc - piertw / 2
-                x4 = xc + piertw / 2
-                y3 = yc + pierst / 2
-                y4 = yc - pierst / 2
-                
-                self.msp.add_lwpolyline([
-                    self.pt(x3, y3),
-                    self.pt(x4, y3),
-                    self.pt(x4, y4),
-                    self.pt(x3, y4),
-                    self.pt(x3, y3)
-                ], close=True)
+            # Draw abutment foundation plans
+            self.draw_abutment_foundation_plans()
             
             logger.info("Plan view drawing completed")
             
         except Exception as e:
             logger.error(f"Error drawing plan view: {e}")
+    
+    def draw_pier_foundation_plan(self):
+        """Draw pier and footing plan views with proper dimensions and skew adjustments."""
+        nspan = int(self.variables.get('NSPAN', 3))
+        span1 = float(self.variables.get('SPAN1', 12))
+        abtl = float(self.variables.get('ABTL', 0))
+        futw = float(self.variables.get('FUTW', 4.5))
+        futl = float(self.variables.get('FUTL', 12))
+        piertw = float(self.variables.get('PIERTW', 1.2))
+        pierst = float(self.variables.get('PIERST', 12))
+        
+        # Plan view Y-coordinate (below elevation view)
+        yc = self.datum - 30.0
+        
+        for i in range(1, nspan):
+            xc = abtl + i * span1
+            
+            # Adjust dimensions for skew
+            futwsq = futw / cos(radians(self.skew))
+            futlsq = futl / cos(radians(self.skew))
+            piertwsq = piertw / cos(radians(self.skew))
+            pierstsq = pierst / cos(radians(self.skew))
+            
+            # Draw footing in plan with skew adjustments
+            x1 = xc - futwsq / 2
+            x2 = xc + futwsq / 2
+            y1 = yc + futlsq / 2
+            y2 = yc - futlsq / 2
+            
+            # Apply skew rotation to footing corners
+            x_offset = (futlsq / 2) * sin(radians(self.skew))
+            y_offset = (futlsq / 2) * (1 - cos(radians(self.skew)))
+            
+            footing_points = [
+                self.pt(x1 - x_offset, y1 - y_offset),
+                self.pt(x2 - x_offset, y1 - y_offset),
+                self.pt(x2 + x_offset, y2 + y_offset),
+                self.pt(x1 + x_offset, y2 + y_offset)
+            ]
+            
+            self.msp.add_lwpolyline(footing_points, close=True)
+            
+            # Draw pier in plan with skew adjustments
+            x3 = xc - piertwsq / 2
+            x4 = xc + piertwsq / 2
+            y3 = yc + pierstsq / 2
+            y4 = yc - pierstsq / 2
+            
+            # Apply skew rotation to pier corners
+            x_pier_offset = (pierstsq / 2) * sin(radians(self.skew))
+            y_pier_offset = (pierstsq / 2) * (1 - cos(radians(self.skew)))
+            
+            pier_points = [
+                self.pt(x3 - x_pier_offset, y3 - y_pier_offset),
+                self.pt(x4 - x_pier_offset, y3 - y_pier_offset),
+                self.pt(x4 + x_pier_offset, y4 + y_pier_offset),
+                self.pt(x3 + x_pier_offset, y4 + y_pier_offset)
+            ]
+            
+            self.msp.add_lwpolyline(pier_points, close=True)
+            
+            # Add pier number labels
+            label_x = self.hpos(xc)
+            label_y = self.vpos(yc + futlsq / 2 + 2.0)
+            self.msp.add_text(f"P{i}", dxfattribs={
+                'height': 1.5 * self.scale1,
+                'insert': (label_x, label_y),
+                'halign': 1  # Center alignment
+            })
+    
+    def draw_abutment_foundation_plans(self):
+        """Draw foundation plans for both abutments."""
+        ccbr = float(self.variables.get('CCBR', 11.1))
+        kerbw = float(self.variables.get('KERBW', 0.23))
+        abtl = float(self.variables.get('ABTL', 0))
+        nspan = int(self.variables.get('NSPAN', 3))
+        span1 = float(self.variables.get('SPAN1', 12))
+        
+        abtlen = ccbr + 2 * kerbw
+        yc = self.datum - 30.0
+        
+        # Left abutment foundation plan
+        self.draw_single_abutment_foundation_plan(abtl, abtlen, yc, "A1")
+        
+        # Right abutment foundation plan
+        right_abt_pos = abtl + nspan * span1
+        self.draw_single_abutment_foundation_plan(right_abt_pos, abtlen, yc, "A2")
+    
+    def draw_single_abutment_foundation_plan(self, abt_x: float, abtlen: float, yc: float, label: str):
+        """Draw foundation plan for a single abutment."""
+        # Foundation dimensions with extensions
+        foundation_ext = 1.5  # Extension beyond abutment
+        
+        y_top = yc + (abtlen + foundation_ext) / 2
+        y_bottom = yc - (abtlen + foundation_ext) / 2
+        
+        # Foundation extends beyond abutment walls
+        x_left = abt_x - foundation_ext
+        x_right = abt_x + foundation_ext
+        
+        # Apply skew adjustments
+        xx = (abtlen + foundation_ext) / 2
+        x_adjust = xx * sin(radians(self.skew))
+        y_adjust = xx * (1 - cos(radians(self.skew)))
+        
+        # Draw foundation plan with skew
+        foundation_points = [
+            self.pt(x_left - x_adjust, y_top - y_adjust),
+            self.pt(x_right - x_adjust, y_top - y_adjust),
+            self.pt(x_right + x_adjust, y_bottom + y_adjust),
+            self.pt(x_left + x_adjust, y_bottom + y_adjust)
+        ]
+        
+        self.msp.add_lwpolyline(foundation_points, close=True)
+        
+        # Add abutment label
+        label_x = self.hpos(abt_x)
+        label_y = self.vpos(y_top + 2.0)
+        self.msp.add_text(label, dxfattribs={
+            'height': 1.5 * self.scale1,
+            'insert': (label_x, label_y),
+            'halign': 1  # Center alignment
+        })
     
     def add_dimensions_and_labels(self):
         """Add dimensions and text labels to the drawing."""
@@ -585,7 +745,183 @@ class BridgeGADGenerator:
                 'height': height,
                 'insert': (x, y),
                 'halign': 1  # Center alignment
-            })
+        })
+    
+    def draw_side_elevation(self):
+        """Draw side elevation view showing cross-section of bridge components."""
+        try:
+            # Get bridge parameters
+            nspan = int(self.variables.get('NSPAN', 3))
+            span1 = float(self.variables.get('SPAN1', 12))
+            abtl = float(self.variables.get('ABTL', 0))
+            rtl = float(self.variables.get('RTL', 110.98))
+            ccbr = float(self.variables.get('CCBR', 11.1))
+            kerbw = float(self.variables.get('KERBW', 0.23))
+            slbthe = float(self.variables.get('SLBTHE', 0.75))
+            kerbd = float(self.variables.get('KERBD', 0.15))
+            capt = float(self.variables.get('CAPT', 110))
+            capb = float(self.variables.get('CAPB', 109.4))
+            piertw = float(self.variables.get('PIERTW', 1.2))
+            pierst = float(self.variables.get('PIERST', 12))
+            futrl = float(self.variables.get('FUTRL', 100))
+            futd = float(self.variables.get('FUTD', 1.0))
+            futw = float(self.variables.get('FUTW', 4.5))
+            futl = float(self.variables.get('FUTL', 12))
+            
+            # Position side elevation to the right of main drawing
+            # Calculate offset to position side elevation
+            lbridge = float(self.variables.get('LBRIDGE', 36))
+            side_x_offset = self.hpos(lbridge + 20)  # 20m spacing from main drawing
+            side_y_base = self.datum
+            
+            # Draw deck cross-section
+            self.draw_deck_cross_section(side_x_offset, side_y_base, ccbr, kerbw, slbthe, kerbd, rtl)
+            
+            # Draw typical pier cross-section
+            if nspan > 1:
+                pier_y_offset = -15.0 * self.scale1  # Position below deck
+                self.draw_pier_cross_section(side_x_offset, side_y_base + pier_y_offset, 
+                                           piertw, pierst, capt, capb, futrl, futd, futw, futl)
+            
+            logger.info("Side elevation drawing completed")
+            
+        except Exception as e:
+            logger.error(f"Error drawing side elevation: {e}")
+    
+    def draw_deck_cross_section(self, x_offset: float, y_base: float, ccbr: float, 
+                               kerbw: float, slbthe: float, kerbd: float, rtl: float):
+        """Draw deck cross-section showing carriageway and kerbs."""
+        # Calculate deck section dimensions
+        total_width = ccbr + 2 * kerbw
+        
+        # Use scale factor for section view
+        x_start = x_offset
+        x_center = x_start + self.h2pos(total_width / 2)
+        x_end = x_start + self.h2pos(total_width)
+        
+        y_deck_top = self.v2pos(rtl)
+        y_deck_bottom = self.v2pos(rtl - slbthe)
+        y_kerb_top = self.v2pos(rtl + kerbd)
+        
+        # Draw main deck slab
+        deck_points = [
+            (x_start, y_deck_top),
+            (x_end, y_deck_top),
+            (x_end, y_deck_bottom),
+            (x_start, y_deck_bottom)
+        ]
+        self.msp.add_lwpolyline(deck_points, close=True)
+        
+        # Draw left kerb
+        left_kerb_x = x_start + self.h2pos(kerbw)
+        left_kerb_points = [
+            (x_start, y_deck_top),
+            (left_kerb_x, y_deck_top),
+            (left_kerb_x, y_kerb_top),
+            (x_start, y_kerb_top)
+        ]
+        self.msp.add_lwpolyline(left_kerb_points, close=True)
+        
+        # Draw right kerb
+        right_kerb_x = x_end - self.h2pos(kerbw)
+        right_kerb_points = [
+            (right_kerb_x, y_deck_top),
+            (x_end, y_deck_top),
+            (x_end, y_kerb_top),
+            (right_kerb_x, y_kerb_top)
+        ]
+        self.msp.add_lwpolyline(right_kerb_points, close=True)
+        
+        # Add section label
+        label_x = x_center
+        label_y = y_kerb_top + 2.0 * self.scale1
+        self.msp.add_text("SECTION A-A", dxfattribs={
+            'height': 2.0 * self.scale1,
+            'insert': (label_x, label_y),
+            'halign': 1  # Center alignment
+        })
+        
+        # Add carriageway width dimension
+        dim_y = y_deck_bottom - 3.0 * self.scale1
+        dim = self.msp.add_linear_dim(
+            base=(x_center, dim_y),
+            p1=(left_kerb_x, y_deck_top),
+            p2=(right_kerb_x, y_deck_top),
+            angle=0,
+            dimstyle="PMB100"
+        )
+        dim.render()
+    
+    def draw_pier_cross_section(self, x_offset: float, y_base: float, piertw: float, 
+                               pierst: float, capt: float, capb: float, futrl: float, 
+                               futd: float, futw: float, futl: float):
+        """Draw typical pier cross-section."""
+        # Position pier section
+        pier_center_x = x_offset + self.h2pos(pierst / 2)
+        
+        # Draw pier cap in section
+        cap_width_section = piertw  # Show actual thickness in section
+        cap_x_start = pier_center_x - self.h2pos(cap_width_section / 2)
+        cap_x_end = pier_center_x + self.h2pos(cap_width_section / 2)
+        
+        cap_y_top = self.v2pos(capt)
+        cap_y_bottom = self.v2pos(capb)
+        
+        cap_points = [
+            (cap_x_start, cap_y_top),
+            (cap_x_end, cap_y_top),
+            (cap_x_end, cap_y_bottom),
+            (cap_x_start, cap_y_bottom)
+        ]
+        self.msp.add_lwpolyline(cap_points, close=True)
+        
+        # Draw pier shaft in section (rectangular - no batter shown in cross-section)
+        shaft_y_top = cap_y_bottom
+        shaft_y_bottom = self.v2pos(futrl)
+        
+        shaft_points = [
+            (cap_x_start, shaft_y_top),
+            (cap_x_end, shaft_y_top),
+            (cap_x_end, shaft_y_bottom),
+            (cap_x_start, shaft_y_bottom)
+        ]
+        self.msp.add_lwpolyline(shaft_points, close=True)
+        
+        # Draw footing in section
+        footing_width_section = futw
+        footing_x_start = pier_center_x - self.h2pos(footing_width_section / 2)
+        footing_x_end = pier_center_x + self.h2pos(footing_width_section / 2)
+        
+        footing_y_top = self.v2pos(futrl)
+        footing_y_bottom = self.v2pos(futrl - futd)
+        
+        footing_points = [
+            (footing_x_start, footing_y_top),
+            (footing_x_end, footing_y_top),
+            (footing_x_end, footing_y_bottom),
+            (footing_x_start, footing_y_bottom)
+        ]
+        self.msp.add_lwpolyline(footing_points, close=True)
+        
+        # Add section label
+        label_x = pier_center_x
+        label_y = cap_y_top + 2.0 * self.scale1
+        self.msp.add_text("SECTION B-B (TYPICAL PIER)", dxfattribs={
+            'height': 2.0 * self.scale1,
+            'insert': (label_x, label_y),
+            'halign': 1  # Center alignment
+        })
+        
+        # Add pier width dimension
+        dim_y = footing_y_bottom - 3.0 * self.scale1
+        dim = self.msp.add_linear_dim(
+            base=(pier_center_x, dim_y),
+            p1=(footing_x_start, footing_y_top),
+            p2=(footing_x_end, footing_y_top),
+            angle=0,
+            dimstyle="PMB100"
+        )
+        dim.render()
     
     def add_span_dimensions(self):
         """Add span length dimensions."""
@@ -628,6 +964,7 @@ class BridgeGADGenerator:
             self.draw_piers_elevation()
             self.draw_abutments()
             self.draw_plan_view()
+            self.draw_side_elevation()
             self.add_dimensions_and_labels()
             
             # Save the drawing
