@@ -1,0 +1,14 @@
+﻿python : usage: bridge_drawings.py [-h] [--span SPAN] [--width WIDTH] 
+[--height HEIGHT]
+At C:\Users\Rajkumar\BridgeGAD-00\INDIVIDUAL_APP_TESTING.ps1:92 char:15
++     $output = python bridge_drawings.py 2>&1
++               ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (usage: bridge_d...-height HEIGHT] 
+   :String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+                          [--supports SUPPORTS] [--load LOAD]
+                          [--material MATERIAL] [--output OUTPUT]
+                          [--format {svg,png,pdf,dxf,all}] [--examples]
+                          {beam,truss,arch,suspension,cable_stayed,t_beam,slab}
+bridge_drawings.py: error: the following arguments are required: bridge_type
