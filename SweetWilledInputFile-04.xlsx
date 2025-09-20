@@ -1,0 +1,45 @@
+Value,Variable,Description
+75,SCALE1,Plan/elevation scale
+50,SCALE2,Section scale
+45,SKEW,Skew angle in degrees
+92000,DATUM,Datum level in mm
+112000,TOPRL,Top road level
+0,LEFT,Left chainage
+75000,RIGHT,Right chainage
+6250,XINCR,X increment in mm
+625,YINCR,Y increment in mm
+12,NOCH,Number of chainages
+2,NSPAN,Number of spans
+75000,LBRIDGE,Bridge length in mm
+0,ABTL,Abutment left position
+112000,RTL,Road top level
+110000,SOFL,Soffit level
+450,KERBW,Kerb width
+225,KERBD,Kerb depth
+14000,CCBR,Clear carriageway breadth
+450,SLBTHC,Slab thickness center
+400,SLBTHE,Slab thickness edge
+225,SLBTHT,Slab thickness transition
+109500,CAPT,Cap top level
+108000,CAPB,Cap bottom level
+2800,CAPW,Cap width
+2200,PIERTW,Pier top width
+12000,BATTR,Batter ratio
+20000,PIERST,Pier stem length
+1,PIERN,Number of piers
+37500,SPAN1,Span 1 length
+104000,FUTRL,Footing top level
+1600,FUTD,Footing depth
+4500,FUTW,Footing width
+7000,FUTL,Footing length
+700,DWTH,Diaphragm thickness
+2800,ALCW,Abutment cap width
+700,ALCD,Abutment cap depth
+9000,ALFB,Abutment front batter
+107000,ALFBL,Abutment front batter level
+18000,ALTB,Abutment top batter
+105000,ALTBL,Abutment top batter level
+1400,ALFO,Abutment footing offset
+1400,ALFD,Abutment footing depth
+9000,ALBB,Abutment back batter
+107000,ALBBL,Abutment back batter level

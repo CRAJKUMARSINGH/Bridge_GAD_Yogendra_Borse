@@ -1,0 +1,236 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bridge GAD - Interactive View</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background-color: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        canvas {
+            border: 1px solid #ccc;
+            display: block;
+            margin: 20px auto;
+            background-color: white;
+        }
+        .controls {
+            text-align: center;
+            margin: 20px 0;
+        }
+        button {
+            background-color: #4CAF50;
+            color: white;
+            padding: 10px 20px;
+            margin: 5px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        button:hover {
+            background-color: #45a049;
+        }
+        .info {
+            background-color: #e7f3ff;
+            padding: 15px;
+            border-radius: 5px;
+            margin: 10px 0;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Bridge General Arrangement Drawing</h1>
+        
+        <div class="info">
+            <h3>Bridge Information:</h3>
+            <p><strong>Bridge Length:</strong> 54.0m</p>
+            <p><strong>Number of Spans:</strong> 3.0</p>
+            <p><strong>Span Length:</strong> 18.0m</p>
+        </div>
+        
+        <div class="controls">
+            <button onclick="zoomIn()">Zoom In</button>
+            <button onclick="zoomOut()">Zoom Out</button>
+            <button onclick="resetView()">Reset View</button>
+            <button onclick="toggleGrid()">Toggle Grid</button>
+        </div>
+        
+        <canvas id="bridgeCanvas" width="1000" height="700"></canvas>
+        
+        <div class="info">
+            <p><strong>Instructions:</strong> Use the controls above to zoom and pan. Click and drag to move the view.</p>
+        </div>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('bridgeCanvas');
+        const ctx = canvas.getContext('2d');
+        
+        let scale = 1;
+        let offsetX = 0;
+        let offsetY = 0;
+        let showGrid = true;
+        
+        // Bridge elements data
+        const elements = {"lines": [{"start": [0.0, 99.5], "end": [50000.0, 99.5]}, {"start": [0.0, -3620.5], "end": [50000.0, -3620.5]}, {"start": [0.0, -7340.5], "end": [50000.0, -7340.5]}, {"start": [0.0, -7340.5], "end": [0.0, 10599.5]}, {"start": [-465.0, 99.5], "end": [465.0, 99.5]}, {"start": [-465.0, 1099.5], "end": [465.0, 1099.5]}, {"start": [-465.0, 2099.5], "end": [465.0, 2099.5]}, {"start": [-465.0, 3099.5], "end": [465.0, 3099.5]}, {"start": [-465.0, 4099.5], "end": [465.0, 4099.5]}, {"start": [-465.0, 5099.5], "end": [465.0, 5099.5]}, {"start": [-465.0, 6099.5], "end": [465.0, 6099.5]}, {"start": [-465.0, 7099.5], "end": [465.0, 7099.5]}, {"start": [-465.0, 8099.5], "end": [465.0, 8099.5]}, {"start": [-465.0, 9099.5], "end": [465.0, 9099.5]}, {"start": [-465.0, 10099.5], "end": [465.0, 10099.5]}, {"start": [10000.0, -7340.5], "end": [10000.0, -6968.5]}, {"start": [20000.0, -7340.5], "end": [20000.0, -6968.5]}, {"start": [30000.0, -7340.5], "end": [30000.0, -6968.5]}, {"start": [40000.0, -7340.5], "end": [40000.0, -6968.5]}, {"start": [50000.0, -7340.5], "end": [50000.0, -6968.5]}, {"start": [60000.0, -7340.5], "end": [60000.0, -6968.5]}, {"start": [-3525.0, 11099.5], "end": [57525.0, 11099.5]}, {"start": [-3525.0, 11179.499999999998], "end": [57525.0, 11179.499999999998]}, {"start": [-3525.0, 11099.5], "end": [-3525.0, 11179.499999999998]}, {"start": [57525.0, 11099.5], "end": [57525.0, 11179.499999999998]}, {"start": [-300.0, 9399.499999999996], "end": [750.0, 9399.499999999996]}, {"start": [-4399.999999999998, 1599.5], "end": [3030.0, 1599.5]}, {"start": [54300.0, 9399.499999999996], "end": [53250.0, 9399.499999999996]}, {"start": [58400.0, 1599.5], "end": [50970.0, 1599.5]}], "rectangles": [], "polylines": [{"points": [[25.0, 11099.5], [17975.0, 11099.5], [17975.0, 10099.5], [25.0, 10099.5], [25.0, 11099.5]], "closed": true}, {"points": [[18025.0, 11099.5], [35975.0, 11099.5], [35975.0, 10099.5], [18025.0, 10099.5], [18025.0, 11099.5]], "closed": true}, {"points": [[36025.0, 11099.5], [53975.0, 11099.5], [53975.0, 10099.5], [36025.0, 10099.5], [36025.0, 11099.5]], "closed": true}, {"points": [[-3500.0, 11099.5], [0.0, 11099.5], [0.0, 10719.500000000004], [-3500.0, 10719.500000000004], [-3500.0, 11099.5]], "closed": true}, {"points": [[54000.0, 11099.5], [57500.0, 11099.5], [57500.0, 10719.500000000004], [54000.0, 10719.500000000004], [54000.0, 11099.5]], "closed": true}, {"points": [[17400.0, 10599.5], [18600.0, 10599.5], [18600.0, 9999.500000000005], [17400.0, 9999.500000000005], [17400.0, 10599.5]], "closed": true}, {"points": [[16560.0, 599.5], [17400.0, 9999.500000000005], [18600.0, 9999.500000000005], [19440.0, 599.5], [16560.0, 599.5]], "closed": true}, {"points": [[15750.0, 599.5], [20250.0, 599.5], [20250.0, -400.5], [15750.0, -400.5], [15750.0, 599.5]], "closed": true}, {"points": [[35400.0, 10599.5], [36600.0, 10599.5], [36600.0, 9999.500000000005], [35400.0, 9999.500000000005], [35400.0, 10599.5]], "closed": true}, {"points": [[34559.99999999999, 599.5], [35400.0, 9999.500000000005], [36600.0, 9999.500000000005], [37440.00000000001, 599.5], [34559.99999999999, 599.5]], "closed": true}, {"points": [[33750.0, 599.5], [38250.0, 599.5], [38250.0, -400.5], [33750.0, -400.5], [33750.0, 599.5]], "closed": true}, {"points": [[0.0, 10729.499999999996], [0.0, 10599.5], [750.0, 10599.5], [750.0, 9399.499999999996], [1529.9999999999998, 1599.5], [1529.9999999999998, 1599.5], [3030.0, 1599.5], [3030.0, 599.5], [-4399.999999999998, 599.5], [-4399.999999999998, 1599.5], [-2899.999999999999, 1599.5], [-2899.999999999999, 1599.5], [-300.0, 9399.499999999996], [-300.0, 10729.499999999996]], "closed": true}, {"points": [[3030.0, -24120.5], [3030.0, -35680.5], [-4399.999999999998, -35680.5], [-4399.999999999998, -24120.5]], "closed": true}, {"points": [[54000.0, 10729.499999999996], [54000.0, 10599.5], [53250.0, 10599.5], [53250.0, 9399.499999999996], [52470.0, 1599.5], [52470.0, 1599.5], [50970.0, 1599.5], [50970.0, 599.5], [58400.0, 599.5], [58400.0, 1599.5], [56900.0, 1599.5], [56900.0, 1599.5], [54300.0, 9399.499999999996], [54300.0, 10729.499999999996]], "closed": true}, {"points": [[50970.0, -24120.5], [50970.0, -35680.5], [58400.0, -35680.5], [58400.0, -24120.5]], "closed": true}, {"points": [[15750.0, -23900.5], [20250.0, -23900.5], [20250.0, -35900.5], [15750.0, -35900.5]], "closed": true}, {"points": [[17400.0, -23900.5], [18600.0, -23900.5], [18600.0, -35900.5], [17400.0, -35900.5]], "closed": true}, {"points": [[33750.0, -23900.5], [38250.0, -23900.5], [38250.0, -35900.5], [33750.0, -35900.5]], "closed": true}, {"points": [[35400.0, -23900.5], [36600.0, -23900.5], [36600.0, -35900.5], [35400.0, -35900.5]], "closed": true}, {"points": [[-1500.0, -23370.5], [1500.0, -23370.5], [1500.0, -36430.5], [-1500.0, -36430.5]], "closed": true}, {"points": [[52500.0, -23370.5], [55500.0, -23370.5], [55500.0, -36430.5], [52500.0, -36430.5]], "closed": true}, {"points": [[74000.0, 20559.5], [95501.6, 20559.5], [95501.6, 19164.5], [74000.0, 19164.5]], "closed": true}, {"points": [[74000.0, 20559.5], [74427.8, 20559.5], [74427.8, 20987.300000000007], [74000.0, 20987.300000000007]], "closed": true}, {"points": [[95073.8, 20559.5], [95501.6, 20559.5], [95501.6, 20987.300000000007], [95073.8, 20987.300000000007]], "closed": true}, {"points": [[84044.0, 19629.5], [86276.0, 19629.5], [86276.0, 18513.50000000001], [84044.0, 18513.50000000001]], "closed": true}, {"points": [[84044.0, 18513.50000000001], [86276.0, 18513.50000000001], [86276.0, 1029.5], [84044.0, 1029.5]], "closed": true}, {"points": [[80975.0, 1029.5], [89345.0, 1029.5], [89345.0, -830.5], [80975.0, -830.5]], "closed": true}], "texts": [{"text": "BED LEVEL", "position": [-4650.0, -1760.5], "height": 465.0, "rotation": 0}, {"text": "CHAINAGE", "position": [-4650.0, -5480.5], "height": 465.0, "rotation": 0}, {"text": "99.500", "position": [-2418.0, -86.5], "height": 372.0, "rotation": 0}, {"text": "100.500", "position": [-2418.0, 913.5], "height": 372.0, "rotation": 0}, {"text": "101.500", "position": [-2418.0, 1913.5], "height": 372.0, "rotation": 0}, {"text": "102.500", "position": [-2418.0, 2913.5], "height": 372.0, "rotation": 0}, {"text": "103.500", "position": [-2418.0, 3913.5], "height": 372.0, "rotation": 0}, {"text": "104.500", "position": [-2418.0, 4913.5], "height": 372.0, "rotation": 0}, {"text": "105.500", "position": [-2418.0, 5913.5], "height": 372.0, "rotation": 0}, {"text": "106.500", "position": [-2418.0, 6913.5], "height": 372.0, "rotation": 0}, {"text": "107.500", "position": [-2418.0, 7913.5], "height": 372.0, "rotation": 0}, {"text": "108.500", "position": [-2418.0, 8913.5], "height": 372.0, "rotation": 0}, {"text": "109.500", "position": [-2418.0, 9913.5], "height": 372.0, "rotation": 0}, {"text": "10.000", "position": [10186.0, -6596.5], "height": 372.0, "rotation": 90.0}, {"text": "20.000", "position": [20186.0, -6596.5], "height": 372.0, "rotation": 90.0}, {"text": "30.000", "position": [30186.0, -6596.5], "height": 372.0, "rotation": 90.0}, {"text": "40.000", "position": [40186.0, -6596.5], "height": 372.0, "rotation": 90.0}, {"text": "50.000", "position": [50186.0, -6596.5], "height": 372.0, "rotation": 90.0}, {"text": "60.000", "position": [60186.0, -6596.5], "height": 372.0, "rotation": 90.0}, {"text": "P1", "position": [18000.0, -21900.5], "height": 279.0, "rotation": 0}, {"text": "P2", "position": [36000.0, -21900.5], "height": 279.0, "rotation": 0}, {"text": "A1", "position": [0.0, -21370.5], "height": 279.0, "rotation": 0}, {"text": "A2", "position": [54000.0, -21370.5], "height": 279.0, "rotation": 0}, {"text": "SECTION A-A", "position": [84750.8, 21359.300000000007], "height": 372.0, "rotation": 0}, {"text": "SECTION B-B (TYPICAL PIER)", "position": [85160.0, 20001.5], "height": 372.0, "rotation": 0}, {"text": "GENERAL ARRANGEMENT DRAWING", "position": [27000.0, -60.5], "height": 500.0, "rotation": 0}, {"text": "BRIDGE DESIGN", "position": [27000.0, -100.5], "height": 400.0, "rotation": 0}], "dimensions": [], "arcs": [], "circles": []};
+        
+        function drawGrid() {
+            if (!showGrid) return;
+            
+            ctx.strokeStyle = '#e0e0e0';
+            ctx.lineWidth = 0.5;
+            
+            const gridSize = 50 * scale;
+            const startX = (-offsetX % gridSize);
+            const startY = (-offsetY % gridSize);
+            
+            for (let x = startX; x < canvas.width; x += gridSize) {
+                ctx.beginPath();
+                ctx.moveTo(x, 0);
+                ctx.lineTo(x, canvas.height);
+                ctx.stroke();
+            }
+            
+            for (let y = startY; y < canvas.height; y += gridSize) {
+                ctx.beginPath();
+                ctx.moveTo(0, y);
+                ctx.lineTo(canvas.width, y);
+                ctx.stroke();
+            }
+        }
+        
+        function transformPoint(x, y) {
+            return [
+                (x * scale) + offsetX + canvas.width/2,
+                (-y * scale) + offsetY + canvas.height/2  // Flip Y axis
+            ];
+        }
+        
+        function drawBridge() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            
+            drawGrid();
+            
+            // Draw lines
+            ctx.strokeStyle = '#000';
+            ctx.lineWidth = 2;
+            elements.lines.forEach(line => {
+                const [x1, y1] = transformPoint(line.start[0], line.start[1]);
+                const [x2, y2] = transformPoint(line.end[0], line.end[1]);
+                
+                ctx.beginPath();
+                ctx.moveTo(x1, y1);
+                ctx.lineTo(x2, y2);
+                ctx.stroke();
+            });
+            
+            // Draw polylines
+            elements.polylines.forEach(polyline => {
+                if (polyline.points.length > 1) {
+                    ctx.beginPath();
+                    const [x1, y1] = transformPoint(polyline.points[0][0], polyline.points[0][1]);
+                    ctx.moveTo(x1, y1);
+                    
+                    for (let i = 1; i < polyline.points.length; i++) {
+                        const [x, y] = transformPoint(polyline.points[i][0], polyline.points[i][1]);
+                        ctx.lineTo(x, y);
+                    }
+                    
+                    if (polyline.closed) {
+                        ctx.closePath();
+                    }
+                    ctx.stroke();
+                }
+            });
+            
+            // Draw text
+            ctx.fillStyle = '#000';
+            ctx.font = `${12 * scale}px Arial`;
+            elements.texts.forEach(text => {
+                const [x, y] = transformPoint(text.position[0], text.position[1]);
+                ctx.save();
+                ctx.translate(x, y);
+                ctx.rotate(-text.rotation * Math.PI / 180);
+                ctx.fillText(text.text, 0, 0);
+                ctx.restore();
+            });
+        }
+        
+        function zoomIn() {
+            scale *= 1.2;
+            drawBridge();
+        }
+        
+        function zoomOut() {
+            scale /= 1.2;
+            drawBridge();
+        }
+        
+        function resetView() {
+            scale = 1;
+            offsetX = 0;
+            offsetY = 0;
+            drawBridge();
+        }
+        
+        function toggleGrid() {
+            showGrid = !showGrid;
+            drawBridge();
+        }
+        
+        // Mouse interaction
+        let isDragging = false;
+        let lastMouseX, lastMouseY;
+        
+        canvas.addEventListener('mousedown', (e) => {
+            isDragging = true;
+            lastMouseX = e.clientX;
+            lastMouseY = e.clientY;
+        });
+        
+        canvas.addEventListener('mousemove', (e) => {
+            if (isDragging) {
+                const deltaX = e.clientX - lastMouseX;
+                const deltaY = e.clientY - lastMouseY;
+                
+                offsetX += deltaX;
+                offsetY += deltaY;
+                
+                lastMouseX = e.clientX;
+                lastMouseY = e.clientY;
+                
+                drawBridge();
+            }
+        });
+        
+        canvas.addEventListener('mouseup', () => {
+            isDragging = false;
+        });
+        
+        canvas.addEventListener('wheel', (e) => {
+            e.preventDefault();
+            if (e.deltaY < 0) {
+                zoomIn();
+            } else {
+                zoomOut();
+            }
+        });
+        
+        // Initial draw
+        drawBridge();
+    </script>
+</body>
+</html>
+        

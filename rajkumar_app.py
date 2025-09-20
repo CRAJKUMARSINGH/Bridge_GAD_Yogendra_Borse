@@ -3,7 +3,9 @@ import os
 import pandas as pd
 import ezdxf
 from ezdxf import *
-from ezdxf.entities import Line, Circle, Arc
+from ezdxf.entities.line import Line
+from ezdxf.entities.circle import Circle
+from ezdxf.entities.arc import Arc
 from math import atan2, degrees, sqrt, cos, sin, tan, radians, pi
 # Clear previously defined global variables
 for var in list(globals().keys()):
@@ -16,9 +18,6 @@ def add_text(text, insert, height, rotation):
 doc = ezdxf.new("R2010", setup=True)
 msp = doc.modelspace()
 # Helper functions for drawing
-def draw_line(msp, points):
-    for i in range(len(points) - 1):
-        msp.add_line(points[i], points[i + 1])
 def draw_rectangle(msp, pt1, pt2):
     msp.add_line(pt1, (pt2[0], pt1[1]))  # Bottom line
     msp.add_line((pt2[0], pt1[1]), pt2)  # Right line
@@ -28,7 +27,8 @@ def draw_rectangle(msp, pt1, pt2):
 # File operations
 def opn():
     try:
-        directory = r"F:\LISP 2005\P1"
+        # Use local directory instead of hardcoded F: drive
+        directory = r"c:\Users\Rajkumar\BridgeGAD-00\SAMPLE_INPUT_FILES"
         filename = "input.xlsx"
         file_path = os.path.join(directory, filename)  # Define the file_path
         f = open(file_path, "r")
@@ -48,21 +48,80 @@ def read_variables(file_path):
         print(f"Error reading Excel file: {e}")
         return None
 # Read variables from Excel file
-file_path = r'F:\LISP 2005\P1\input.xlsx'
+# Use local file instead of hardcoded F: drive path
+file_path = r'c:\Users\Rajkumar\BridgeGAD-00\SAMPLE_INPUT_FILES\input.xlsx'
 df = read_variables(file_path)
-if df is not None:
+if df is None:
+    print("Error: Could not read Excel file. Using default values.")
+    # Create a default DataFrame with sample values
+    df = pd.DataFrame([
+        [100, 'SCALE1', 'Scale1'],
+        [50, 'SCALE2', 'Scale2'],
+        [0, 'SKEW', 'Skew'],
+        [100, 'DATUM', 'Datum'],
+        [110, 'TOPRL', 'Top RL'],
+        [0, 'LEFT', 'Left'],
+        [100, 'RIGHT', 'Right'],
+        [10, 'XINCR', 'X Increment'],
+        [1, 'YINCR', 'Y Increment'],
+        [5, 'NOCH', 'Number of chainages'],
+        [3, 'NSPAN', 'Number of spans'],
+        [100, 'LBRIDGE', 'Length of bridge'],
+        [0, 'ABTL', 'Abutment left chainage'],
+        [105, 'RTL', 'Road top level'],
+        [103, 'SOFL', 'Soffit level'],
+        [0.5, 'KERBW', 'Kerb width'],
+        [0.3, 'KERBD', 'Kerb depth'],
+        [8, 'CCBR', 'Clear carriageway'],
+        [0.3, 'SLBTHC', 'Slab thickness center'],
+        [0.25, 'SLBTHE', 'Slab thickness edge'],
+        [0.2, 'SLBTHT', 'Slab thickness tip'],
+        [104, 'CAPT', 'Cap top'],
+        [103, 'CAPB', 'Cap bottom'],
+        [2, 'CAPW', 'Cap width'],
+        [1.5, 'PIERTW', 'Pier top width'],
+        [10, 'BATTR', 'Batter'],
+        [10, 'PIERST', 'Pier straight'],
+        [1, 'PIERN', 'Pier number'],
+        [30, 'SPAN1', 'Span 1'],
+        [95, 'FUTRL', 'Foundation RL'],
+        [2, 'FUTD', 'Foundation depth'],
+        [4, 'FUTW', 'Foundation width'],
+        [6, 'FUTL', 'Foundation length'],
+        [0.3, 'DWTH', 'Dirt wall thickness'],
+        [2, 'ALCW', 'Abutment left cap width'],
+        [0.5, 'ALCD', 'Abutment left cap depth'],
+        [10, 'ALFB', 'Abutment left front batter'],
+        [101, 'ALFBL', 'Abutment left front batter level'],
+        [10, 'ALTB', 'Abutment left toe batter'],
+        [101, 'ALTBL', 'Abutment left toe batter level'],
+        [1.5, 'ALFO', 'Abutment left front offset'],
+        [1, 'ALFD', 'Abutment left foot depth'],
+        [10, 'ALBB', 'Abutment left back batter'],
+        [101, 'ALBBL', 'Abutment left back batter level'],
+        [100.75, 'ALBBR', 'Abutment right back batter level'],
+        [100.75, 'ALFBR', 'Abutment right front batter level'],
+        [100.75, 'ALTBR', 'Abutment right toe batter level'],
+        [12, 'ABTLEN', 'Abutment length'],
+        [3, 'laslab', 'Approach slab length'],
+        [12, 'APWTH', 'Approach slab width'],
+        [0.3, 'APTHK', 'Approach slab thickness'],
+        [0.075, 'WCTH', 'Wearing course thickness']
+    ], columns=['Value', 'Variable', 'Description'])
+else:
     # Print the first output of data read
     print(df.head(1))
-    # Define variables
-    Scale1 = df.loc[df['Variable'] == 'SCALE1', 'Value'].values[0]
-    Scale2 = df.loc[df['Variable'] == 'SCALE2', 'Value'].values[0]    
-    skew = df.loc[df['Variable'] == 'SKEW', 'Value'].values[0]
-    # Calculate sc
-    sc = Scale1 / Scale2
-    print(f"sc = {sc}")
-    # Print variables
-    for index, row in df.iterrows():
-        print(f"Variable: {row['Variable']}, Value: {row['Value']}")
+
+# Define variables
+Scale1 = df.loc[df['Variable'] == 'SCALE1', 'Value'].values[0]
+Scale2 = df.loc[df['Variable'] == 'SCALE2', 'Value'].values[0]    
+skew = df.loc[df['Variable'] == 'SKEW', 'Value'].values[0]
+# Calculate sc
+sc = Scale1 / Scale2
+print(f"sc = {sc}")
+# Print variables
+for index, row in df.iterrows():
+    print(f"Variable: {row['Variable']}, Value: {row['Value']}")
 #######################################   
 
 #######################################
@@ -108,7 +167,6 @@ if 'Variable' in df.columns:
     variable_values['scale1'] = df.loc[df['Variable'] == 'SCALE1', 'Value'].values[0]  # Scale1
 else:
     print("Error: 'Variable' column not found in DataFrame")
-variable_values['scale1'] = df.loc[df['Variable'] == 'SCALE1', 'Value'].values[0]  # Scale1
 variable_values['abtlen'] = df.loc[df['Variable'] == 'ABTLEN', 'Value'].values[0]  # Length of Abutment
 variable_values['dwth'] = df.loc[df['Variable'] == 'DWTH', 'Value'].values[0]  # Dirtwall Thickness
 variable_values['alcw'] = df.loc[df['Variable'] == 'ALCW', 'Value'].values[0]  # Abutment Left Cap Width Excluding D/W
@@ -187,15 +245,6 @@ print(f"sin(skew1): {s}")
 print(f"cos(skew1): {c}")
 print(f"tan(skew1): {tn}")
 print(f"sc: {sc}")
-###############################################################
-def vpos(a):
-    return datum + vvs * (a - datum)   
-def hpos(a):
-    return left + hhs * (a - left)
-def v2pos(a):
-    return datum + sc * vvs * (a - datum)
-def h2pos(a):
-    return left + sc * hhs * (a - left)
 ################################################################################################
 # 3.0 plotting layout of elevation ( X axis Y axis etc.) 
 #############################################################
@@ -303,7 +352,7 @@ draw_line(pta3, pta4)
 def cs():
     global left, hhs, d8, d9, d4, d5, d6, d7, xincr, b2, b1, ptb3, vpos
     # File path to the Excel file
-    file_path = r'F:\LISP 2005\P1\input.xlsx'
+    file_path = r'c:\Users\Rajkumar\BridgeGAD-00\SAMPLE_INPUT_FILES\input.xlsx'
     try:
         # Read variable 'noch' from Sheet1
         sheet1 = pd.read_excel(file_path, sheet_name="Sheet1")
@@ -1677,13 +1726,17 @@ if __name__ == "__main__":
 
 
 ###################################################################################################################################
-directory = r"F:\LISP 2005\P1"
+# Save drawing to file
+directory = r"c:\Users\Rajkumar\BridgeGAD-00\Test_Results_Output"
 filename = "SUPER STRUCTURE.DXF"
 file_path = os.path.join(directory, filename)  # Define the file_path
-#f = open(file_path, "r")
-############### Save in Specified Directory Filename ####################
+
+# Create directory if it doesn't exist
+os.makedirs(directory, exist_ok=True)
+
+# Save the DXF file
 doc.saveas(os.path.join(directory, filename))
 doc.saveas("combined_drawing.dxf")
-print("\nFile combined_drawing.dxf saved in user successfully.")
+print("\nFile combined_drawing.dxf saved successfully.")
 #########################################################################
 ###############################################################

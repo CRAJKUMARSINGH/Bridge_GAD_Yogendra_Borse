@@ -1,0 +1,49 @@
+Value,Variable,Description
+120.0,SCALE1,Scale factor for plan and elevation
+60.0,SCALE2,Scale factor for sections
+5.0,SKEW,Skew angle in degrees
+95.0,DATUM,Datum level
+115.0,TOPRL,Top level on Y axis
+-10.0,LEFT,Starting chainage of X axis
+40.0,RIGHT,End chainage of X axis
+5.0,XINCR,Interval of distances on X axis
+1.0,YINCR,Interval of levels on Y axis
+8,NOCH,Total number of chainages
+2,NSPAN,Number of spans
+50.0,LBRIDGE,Length of bridge
+-10.0,ABTL,Chainage of left abutment
+108.0,RTL,Road top level
+105.0,Sofl,Soffit level
+0.4,KERBW,Width of kerb
+0.25,KERBD,Depth of kerb
+8.0,CCBR,Clear carriageway width
+0.25,SLBTHC,Thickness of slab at center
+0.2,SLBTHE,Thickness of slab at edge
+0.15,SLBTHT,Thickness of slab at tip
+106.0,CAPT,Pier cap top RL
+105.5,CAPB,Pier cap bottom RL
+1.5,CAPW,Cap width
+1.2,PIERTW,Pier top width
+12.0,BATTR,Pier batter
+10.0,PIERST,Straight length of pier
+1,PIERN,Pier serial number
+25.0,SPAN1,Span individual length
+98.0,FUTRL,Founding RL
+1.2,FUTD,Depth of footing
+3.5,FUTW,Width of footing
+7.0,FUTL,Length of footing
+0.4,DWTH,Dirtwall thickness
+1.2,ALCW,Abutment left cap width
+1.2,ALCD,Abutment left cap depth
+12.0,ALFB,Abutment left front batter
+103.0,ALFBL,Abutment left front batter RL
+12.0,ALTB,Abutment left toe batter
+102.5,ALTBL,Abutment left toe batter level
+0.6,ALFO,Abutment left front offset
+1.2,ALFD,Abutment left footing depth
+10.0,ALBB,Abutment left back batter
+103.5,ALBBL,Abutment left back batter RL
+103.0,ALFBR,Abutment right front batter RL
+102.5,ALTBR,Abutment right toe batter level
+103.5,ALBBR,Abutment right back batter RL
+98.0,ARFL,Abutment right footing level

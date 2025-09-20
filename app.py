@@ -3,9 +3,40 @@ import pygame
 import math
 import platform
 import ezdxf
+import logging
+import streamlit as st
+import pandas as pd
+import numpy as np
+import matplotlib.pyplot as plt
+import io
+import base64
+from flask import Flask, render_template, request, jsonify, send_file, flash, redirect, url_for
+from werkzeug.middleware.proxy_fix import ProxyFix
+import tempfile
+import json
 from reportlab.pdfgen import canvas
-from reportlab.lib.pagesizes import A4
+from reportlab.lib.pagesizes import A4, A3
 from reportlab.lib.units import mm
+from reportlab.lib.colors import black, blue, red
+from matplotlib.patches import Arc, Circle, Polygon, Rectangle, FancyBboxPatch
+from dataclasses import dataclass
+from typing import List, Tuple, Optional, Dict, Any
+from enum import Enum
+from math import atan2, degrees, sqrt, cos, sin, tan, radians, pi
+
+# Import new enhanced architecture
+try:
+    from src.bridge_gad import (
+        BridgeParameters, 
+        BridgeDrawingGenerator, 
+        BridgeType,
+        OutputFormat,
+        create_slab_bridge
+    )
+    ENHANCED_FEATURES = True
+except ImportError:
+    ENHANCED_FEATURES = False
+    logging.warning("Enhanced features not available, using basic functionality")
 
 # Initialize Pygame
 pygame.init()
@@ -158,7 +189,7 @@ def layout(screen=None, doc=None, pdf=None):
         pygame.draw.line(screen, BLACK, ptc1, ptd1, 2)
     if doc:
         msp = doc.modelspace()
-setup_dxf_layers(doc)
+        setup_dxf_layers(doc)
         msp.add_line(pta1, pta2)
         msp.add_line(ptb1, ptb2)
         msp.add_line(ptc1, ptc2)
@@ -175,6 +206,7 @@ setup_dxf_layers(doc)
         text = font.render("BED LEVEL", True, BLACK)
         screen.blit(text, ptb3)
     if doc:
+        msp = doc.modelspace()
         msp.add_text("BED LEVEL", dxfattribs={'height': 2.5}).set_placement(ptb3)
     if pdf:
         pdf.drawString(ptb3[0]/mm, ptb3[1]/mm, "BED LEVEL")
@@ -184,6 +216,7 @@ setup_dxf_layers(doc)
         text = font.render("CHAINAGE", True, BLACK)
         screen.blit(text, ptb3)
     if doc:
+        msp = doc.modelspace()
         msp.add_text("CHAINAGE", dxfattribs={'height': 2.5}).set_placement(ptb3)
     if pdf:
         pdf.drawString(ptb3[0]/mm, ptb3[1]/mm, "CHAINAGE")
@@ -194,6 +227,7 @@ setup_dxf_layers(doc)
     if screen:
         pygame.draw.line(screen, GRAY, pta1, pta2, 1)
     if doc:
+        msp = doc.modelspace()
         msp.add_line(pta1, pta2)
     if pdf:
         pdf.setLineWidth(1)
@@ -207,6 +241,7 @@ setup_dxf_layers(doc)
             text = font.render(f"{lvl:.3f}", True, BLACK)
             screen.blit(text, (pta1[0] - 40, pta1[1] - 8))
         if doc:
+            msp = doc.modelspace()
             msp.add_text(f"{lvl:.3f}", dxfattribs={'height': 2.5}).set_placement((pta1[0] - 40, pta1[1] - 2.5))
         if pdf:
             pdf.drawString((pta1[0] - 40)/mm, (pta1[1] - 2)/mm, f"{lvl:.3f}")
@@ -216,6 +251,7 @@ setup_dxf_layers(doc)
             if screen:
                 pygame.draw.line(screen, GRAY, pta1, pta2, 1)
             if doc:
+                msp = doc.modelspace()
                 msp.add_line(pta1, pta2)
             if pdf:
                 pdf.setLineWidth(1)
@@ -235,6 +271,7 @@ setup_dxf_layers(doc)
             text = pygame.transform.rotate(text, 90)
             screen.blit(text, (pta1[0], pta1[1] - 20))
         if doc:
+            msp = doc.modelspace()
             msp.add_text(b1, dxfattribs={'height': 2.5, 'rotation': 90}).set_placement((pta1[0], pta1[1] - 5))
         if pdf:
             pdf.saveState()
@@ -247,6 +284,7 @@ setup_dxf_layers(doc)
         if screen:
             pygame.draw.line(screen, GRAY, pta1, pta2, 1)
         if doc:
+            msp = doc.modelspace()
             msp.add_line(pta1, pta2)
         if pdf:
             pdf.setLineWidth(1)
@@ -270,7 +308,7 @@ def cs(screen=None, doc=None, pdf=None):
             screen.blit(text, (pta2[0], pta2[1] - 20))
         if doc:
             msp = doc.modelspace()
-setup_dxf_layers(doc)
+            setup_dxf_layers(doc)
             msp.add_text(b2, dxfattribs={'height': 2.5, 'rotation': 90}).set_placement((pta2[0], pta2[1] - 5))
         if pdf:
             pdf.saveState()
@@ -285,6 +323,7 @@ setup_dxf_layers(doc)
                 text = pygame.transform.rotate(text, 90)
                 screen.blit(text, (pta1[0], pta1[1] - 20))
             if doc:
+                msp = doc.modelspace()
                 msp.add_text(b1, dxfattribs={'height': 2.5, 'rotation': 90}).set_placement((pta1[0], pta1[1] - 5))
             if pdf:
                 pdf.saveState()
@@ -297,6 +336,7 @@ setup_dxf_layers(doc)
             if screen:
                 pygame.draw.line(screen, GRAY, pta1, pta2, 1)
             if doc:
+                msp = doc.modelspace()
                 msp.add_line(pta1, pta2)
             if pdf:
                 pdf.setLineWidth(1)
@@ -306,19 +346,22 @@ setup_dxf_layers(doc)
         if screen:
             pygame.draw.line(screen, BLACK, pta5, pta6, 1)
         if doc:
+            msp = doc.modelspace()
             msp.add_line(pta5, pta6)
         if pdf:
             pdf.setLineWidth(1)
             pdf.line(pta5[0]/mm, pta5[1]/mm, pta6[0]/mm, pta6[1]/mm)
         ptb4 = pt(x, y)
-        if a > 1:
+        if a > 1 and ptb3 is not None:
             if screen:
                 pygame.draw.line(screen, BLACK, ptb3, ptb4, 2)
             if doc:
+                msp = doc.modelspace()
                 msp.add_line(ptb3, ptb4)
             if pdf:
                 pdf.setLineWidth(2)
-                pdf.line(ptb3[0]/mm, ptb3[1]/mm, ptb4[0]/mm, ptb4[1]/mm)
+                if ptb3 is not None:
+                    pdf.line(ptb3[0]/mm, ptb3[1]/mm, ptb4[0]/mm, ptb4[1]/mm)
         ptb3 = ptb4
 
 def pier(screen=None, doc=None, pdf=None):
@@ -338,7 +381,7 @@ def pier(screen=None, doc=None, pdf=None):
         pygame.draw.rect(screen, BLACK, (pta1[0], min(pta1[1], pta2[1]), pta2[0] - pta1[0], abs(pta2[1] - pta1[1])), 1)
     if doc:
         msp = doc.modelspace()
-setup_dxf_layers(doc)
+        setup_dxf_layers(doc)
         msp.add_lwpolyline([pta1, (pta2[0], pta1[1]), pta2, (pta1[0], pta2[1]), pta1], close=True)
     if pdf:
         pdf.setLineWidth(1)
@@ -355,6 +398,7 @@ setup_dxf_layers(doc)
     if screen:
         pygame.draw.rect(screen, BLACK, (pta1[0], min(pta1[1], pta2[1]), pta2[0] - pta1[0], abs(pta2[1] - pta2[1])), 1)
     if doc:
+        msp = doc.modelspace()
         msp.add_lwpolyline([pta1, (pta2[0], pta1[1]), pta2, (pta1[0], pta2[1]), pta1], close=True)
     if pdf:
         pdf.setLineWidth(1)
@@ -378,6 +422,7 @@ setup_dxf_layers(doc)
         pygame.draw.line(screen, BLACK, pta1, pta2, 2)
         pygame.draw.line(screen, BLACK, pta3, pta4, 2)
     if doc:
+        msp = doc.modelspace()
         msp.add_line(pta1, pta2)
         msp.add_line(pta3, pta4)
     if pdf:
@@ -396,6 +441,7 @@ setup_dxf_layers(doc)
     if screen:
         pygame.draw.rect(screen, BLACK, (pta5[0], min(pta5[1], pta6[1]), pta6[0] - pta5[0], abs(pta6[1] - pta5[1])), 1)
     if doc:
+        msp = doc.modelspace()
         msp.add_lwpolyline([pta5, (pta6[0], pta5[1]), pta6, (pta5[0], pta6[1]), pta5], close=True)
     if pdf:
         pdf.setLineWidth(1)
@@ -414,6 +460,7 @@ setup_dxf_layers(doc)
     if screen:
         pygame.draw.polygon(screen, BLACK, [(p[0], p[1] + plan_y_offset) for p in rotated_points], 1)
     if doc:
+        msp = doc.modelspace()
         msp.add_lwpolyline([(p[0], p[1] + plan_y_offset) for p in rotated_points], close=True)
     if pdf:
         pdf.setLineWidth(1)
@@ -459,6 +506,7 @@ setup_dxf_layers(doc)
         if screen:
             pygame.draw.line(screen, BLACK, (start[0], start[1] + plan_y_offset), (end[0], end[1] + plan_y_offset), 1)
         if doc:
+            msp = doc.modelspace()
             msp.add_line((start[0], start[1] + plan_y_offset), (end[0], end[1] + plan_y_offset))
         if pdf:
             pdf.setLineWidth(1)
@@ -469,6 +517,7 @@ setup_dxf_layers(doc)
         if screen:
             pygame.draw.line(screen, BLACK, (p1[0], p1[1] + plan_y_offset), (p2[0], p2[1] + plan_y_offset), 1)
         if doc:
+            msp = doc.modelspace()
             msp.add_line((p1[0], p1[1] + plan_y_offset), (p2[0], p2[1] + plan_y_offset))
         if pdf:
             pdf.setLineWidth(1)
@@ -522,7 +571,7 @@ def abt1(screen=None, doc=None, pdf=None):
         pygame.draw.line(screen, BLACK, pt15, pt14, 1)
     if doc:
         msp = doc.modelspace()
-setup_dxf_layers(doc)
+        setup_dxf_layers(doc)
         msp.add_lwpolyline(points, close=True)
         msp.add_line(pt13, pt4)
         msp.add_line(pt10, pt7)
@@ -561,6 +610,7 @@ setup_dxf_layers(doc)
     if screen:
         pygame.draw.polygon(screen, BLACK, [(p[0], p[1] + plan_y_offset) for p in rotated_points], 1)
     if doc:
+        msp = doc.modelspace()
         msp.add_lwpolyline([(p[0], p[1] + plan_y_offset) for p in rotated_points], close=True)
     if pdf:
         pdf.setLineWidth(1)
@@ -598,6 +648,7 @@ setup_dxf_layers(doc)
         if screen:
             pygame.draw.line(screen, BLACK, (p1[0], p1[1] + plan_y_offset), (p2[0], p2[1] + plan_y_offset), 1)
         if doc:
+            msp = doc.modelspace()
             msp.add_line((p1[0], p1[1] + plan_y_offset), (p2[0], p2[1] + plan_y_offset))
         if pdf:
             pdf.setLineWidth(1)
@@ -631,6 +682,27 @@ def setup():
     abt1(screen=screen)
 
 def save_dxf():
+    """Enhanced DXF save function with new architecture support"""
+    if ENHANCED_FEATURES:
+        try:
+            # Use new enhanced architecture
+            params = create_slab_bridge(
+                span_length=lbridge/1000,  # Convert mm to m
+                deck_width=ccbr/1000,      # Convert mm to m
+                project_name="BridgeGAD Demo",
+                drawing_title="Slab Bridge - General Arrangement"
+            )
+            
+            generator = BridgeDrawingGenerator(params)
+            result = generator.generate_drawing([OutputFormat.DXF])
+            
+            if OutputFormat.DXF in result:
+                print(f"Enhanced DXF saved as {result[OutputFormat.DXF]}")
+            return
+        except Exception as e:
+            logging.error(f"Enhanced save failed, falling back to basic: {e}")
+    
+    # Fallback to original functionality
     doc = ezdxf.new(dxfversion='R2010')
     layout(doc=doc)
     cs(doc=doc)
@@ -639,6 +711,27 @@ def save_dxf():
     doc.saveas("bridge_output.dxf")
 
 def save_pdf():
+    """Enhanced PDF save function with new architecture support"""
+    if ENHANCED_FEATURES:
+        try:
+            # Use new enhanced architecture
+            params = create_slab_bridge(
+                span_length=lbridge/1000,  # Convert mm to m
+                deck_width=ccbr/1000,      # Convert mm to m
+                project_name="BridgeGAD Demo",
+                drawing_title="Slab Bridge - General Arrangement"
+            )
+            
+            generator = BridgeDrawingGenerator(params)
+            result = generator.generate_drawing([OutputFormat.PDF])
+            
+            if OutputFormat.PDF in result:
+                print(f"Enhanced PDF saved as {result[OutputFormat.PDF]}")
+            return
+        except Exception as e:
+            logging.error(f"Enhanced save failed, falling back to basic: {e}")
+    
+    # Fallback to original functionality
     pdf = canvas.Canvas("bridge_output.pdf", pagesize=(1200/mm, 800/mm))
     layout(pdf=pdf)
     cs(pdf=pdf)
@@ -760,8 +853,9 @@ def update_loop():
                 if event.button == 1:
                     mouse_dragging = False
             elif event.type == pygame.MOUSEMOTION and mouse_dragging:
-                pan_x = start_pan_x + (event.pos[0] - start_pos[0])
-                pan_y = start_pan_y + (event.pos[1] - start_pos[1])
+                if 'start_pos' in locals():
+                    pan_x = start_pan_x + (event.pos[0] - start_pos[0])
+                    pan_y = start_pan_y + (event.pos[1] - start_pos[1])
     # Proper rendering logic here
     if input_mode:
         render_input_screen()
@@ -815,10 +909,10 @@ def add_bridge_deck(msp, left, right, rtl, ccbr, scale, layer="STRUCTURE"):
     
     # Main deck rectangle
     deck_points = [
-        (hpos(deck_left, left, scale), vpos(rtl, 100, scale)),
-        (hpos(deck_right, left, scale), vpos(rtl, 100, scale)),
-        (hpos(deck_right, left, scale), vpos(rtl-0.2, 100, scale)),
-        (hpos(deck_left, left, scale), vpos(rtl-0.2, 100, scale))
+        (hpos(deck_left), vpos(rtl)),
+        (hpos(deck_right), vpos(rtl)),
+        (hpos(deck_right), vpos(rtl-0.2)),
+        (hpos(deck_left), vpos(rtl-0.2))
     ]
     
     msp.add_lwpolyline(deck_points, close=True, dxfattribs={'layer': layer})
@@ -829,10 +923,10 @@ def add_pier(msp, ch, datum, rtl, pier_width, scale, layer="STRUCTURE"):
     pier_right = ch + pier_width/2
     
     pier_points = [
-        (hpos(pier_left, 0, scale), vpos(datum, datum, scale)),
-        (hpos(pier_right, 0, scale), vpos(datum, datum, scale)),
-        (hpos(pier_right, 0, scale), vpos(rtl, datum, scale)),
-        (hpos(pier_left, 0, scale), vpos(rtl, datum, scale))
+        (hpos(pier_left), vpos(datum)),
+        (hpos(pier_right), vpos(datum)),
+        (hpos(pier_right), vpos(rtl)),
+        (hpos(pier_left), vpos(rtl))
     ]
     
     msp.add_lwpolyline(pier_points, close=True, dxfattribs={'layer': layer})

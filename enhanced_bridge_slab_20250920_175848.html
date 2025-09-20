@@ -1,0 +1,132 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Enhanced Bridge Viewer - Slab</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+            min-height: 100vh;
+        }
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+            overflow: hidden;
+        }
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+        .controls {
+            padding: 20px;
+            background: #f8f9fa;
+            border-bottom: 1px solid #dee2e6;
+            display: flex;
+            gap: 15px;
+            flex-wrap: wrap;
+            align-items: center;
+        }
+        .specs-panel {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 20px;
+            padding: 30px;
+            background: #f8f9fa;
+        }
+        .spec-card {
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        .quality-analysis {
+            background: #e8f4f8;
+            border-left: 5px solid #1f77b4;
+            padding: 20px;
+            margin: 20px;
+            border-radius: 5px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>Slab Bridge</h1>
+            <h2>Enhanced Interactive Technical Drawing Viewer</h2>
+        </div>
+        
+        <div class="controls">
+            <div class="control-group">
+                <label>Zoom:</label>
+                <input type="range" id="zoomSlider" min="0.5" max="3" step="0.1" value="1">
+                <span id="zoomValue">100%</span>
+            </div>
+            <div class="control-group">
+                <label>View:</label>
+                <select id="viewSelector">
+                    <option value="both">Both Views</option>
+                    <option value="elevation">Elevation Only</option>
+                    <option value="plan">Plan Only</option>
+                </select>
+            </div>
+        </div>
+        
+        <div class="specs-panel">
+            <div class="spec-card">
+                <h3>Structural Specifications</h3>
+                <p><strong>Bridge Type:</strong> Slab</p>
+                <p><strong>Total Length:</strong> 45.0 m</p>
+                <p><strong>Deck Width:</strong> 12.0 m</p>
+                <p><strong>Maximum Height:</strong> 25.0 m</p>
+                <p><strong>Material:</strong> Steel</p>
+            </div>
+            
+            <div class="spec-card">
+                <h3>Design Parameters</h3>
+                <p><strong>Load Capacity:</strong> 60.0 kN/m</p>
+                <p><strong>Supports:</strong> 2</p>
+                <p><strong>Skew Angle:</strong> 0°</p>
+                <p><strong>Foundation Depth:</strong> 2 m</p>
+            </div>
+            
+            <div class="spec-card">
+                <h3>Drawing Information</h3>
+                <p><strong>Generated:</strong> 2025-09-20 17:58</p>
+                <p><strong>Software:</strong> Enhanced BridgeGAD-00 v2.0</p>
+                <p><strong>Scale:</strong> 1:100</p>
+                <p><strong>Quality Score:</strong> 95/100</p>
+            </div>
+        </div>
+        
+        <div class="quality-analysis">
+            <h3>Quality Analysis & Improvements</h3>
+            <p><strong>Overall Grade:</strong> A</p>
+            <h4>Recommended Enhancements:</h4>
+            <ul>
+                <li>Add detailed foundation elements for better structural representation</li><li>Include expansion joint details for thermal movement</li><li>Add waterproofing layer visualization for durability</li><li>Enhance dimension annotations with professional standards</li><li>Include material specifications and construction notes</li><li>Add load path visualization for structural understanding</li>
+            </ul>
+        </div>
+    </div>
+    
+    <script>
+        // Interactive controls
+        const zoomSlider = document.getElementById('zoomSlider');
+        const zoomValue = document.getElementById('zoomValue');
+        
+        zoomSlider.addEventListener('input', (e) => {
+            zoomValue.textContent = Math.round(e.target.value * 100) + '%';
+        });
+    </script>
+</body>
+</html>
+        
