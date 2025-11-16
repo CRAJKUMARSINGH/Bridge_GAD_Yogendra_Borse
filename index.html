@@ -5,30 +5,76 @@
     <link rel="stylesheet" href="https://pyscript.net/releases/2025.2.1/core.css" />
     <script defer src="https://pyscript.net/releases/2025.2.1/core.js"></script>
     <style>
+        :root {
+            --bg: #f8fafc;
+            --bg-2: #eef2ff;
+            --text: #0f172a;
+            --card: #ffffff;
+            --border: #e2e8f0;
+            --accent: #2563eb;
+            --accent-700: #1d4ed8;
+            --muted: #64748b;
+            --canvas-bg: #ffffff;
+        }
         body {
             display: flex;
             flex-direction: column;
             align-items: center;
             font-family: Arial, sans-serif;
             margin: 0;
-            padding: 20px;
-            background-color: #f0f0f0;
+            padding: 24px;
+            color: var(--text);
+            background: radial-gradient(1200px 600px at 50% -10%, var(--bg-2), var(--bg));
         }
         canvas {
-            border: 2px solid #333;
-            background-color: white;
+            border: 2px solid var(--accent);
+            background-color: var(--canvas-bg);
+            border-radius: 8px;
+            box-shadow: 0 6px 18px rgba(2, 6, 23, 0.1);
         }
         .controls {
             margin-top: 20px;
-            padding: 10px;
-            background-color: #fff;
-            border-radius: 5px;
-            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+            padding: 14px 16px;
+            background-color: var(--card);
+            border-radius: 10px;
+            border: 1px solid var(--border);
+            box-shadow: 0 8px 24px rgba(2, 6, 23, 0.08);
+            display: flex;
+            gap: 8px;
+            align-items: center;
+            flex-wrap: wrap;
         }
         .controls input {
-            margin: 5px;
-            padding: 5px;
-            width: 100px;
+            margin: 4px 0;
+            padding: 8px 10px;
+            width: 120px;
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            background: #fff;
+            color: var(--text);
+            transition: border-color 0.2s ease, box-shadow 0.2s ease;
+        }
+        .controls input:focus {
+            outline: none;
+            border-color: var(--accent);
+            box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.15);
+        }
+        .controls button {
+            margin: 4px 0;
+            padding: 8px 12px;
+            border: 0;
+            border-radius: 8px;
+            background: var(--accent);
+            color: #fff;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background-color 0.2s ease, transform 0.05s ease;
+        }
+        .controls button:hover {
+            background: var(--accent-700);
+        }
+        .controls button:active {
+            transform: translateY(1px);
         }
     </style>
 </head>
