@@ -1,0 +1,30 @@
+﻿[
+    {
+        "Status":  "SUCCESS",
+        "AppName":  "BridgeGAD-01",
+        "InputFormat":  "No specific input file (Streamlit/Direct execution)",
+        "Results":  [
+                        {
+                            "Output":  "python : C:\\Users\\Rajkum\r\nar\\AppData\\Local\\Program\r\ns\\Python\\Python311\\pytho\r\nn.exe: can\u0027t open file \u0027\r\nC:\\\\Users\\\\Rajkumar\\\\Bri\r\ndge_GAD_Yogendra_Borse-m\r\nain\\\\bridge_drawings.py\u0027\r\n: [Errno 2] No such \r\nfile or directory\r\nAt C:\\Users\\Rajkumar\\Bri\r\ndge_GAD_Yogendra_Borse-m\r\nain\\INDIVIDUAL_APP_TESTI\r",
+                            "App":  "bridge_drawings.py",
+                            "InputFile":  "None",
+                            "Success":  true,
+                            "OutputFile":  "C:\\Users\\Rajkumar\\BridgeGAD-00\\INDIVIDUAL_TESTS_18_11_2025_1845\\BridgeGAD-01\\bridge_drawings_output.txt"
+                        }
+                    ]
+    },
+    {
+        "Status":  "PARTIAL",
+        "AppName":  "Bridge_Slab_Design",
+        "InputFormat":  "Variable mapping (.xlsx)",
+        "Results":  [
+                        {
+                            "Output":  "python : Traceback \r\n(most recent call last):\r\nAt C:\\Users\\Rajkumar\\Bri\r\ndge_GAD_Yogendra_Borse-m\r\nain\\INDIVIDUAL_APP_TESTI\r\nNG.ps1:285 char:19\r\n+ ...     $output = \r\npython \r\nbridge_design_app.py \r\n$inputFile $outputFile \r\n2\u003e\u00261\r\n+                   ~~~~\r\n~~~~~~~~~~~~~~~~~~~~~~~~\r\n~~~~~~~~~~~~~~~~~~~~~~~~\r\n~~~\r\n    + CategoryInfo      \r\n        : NotSpecified  \r\n  : (Traceback (most    \r\n recent c",
+                            "App":  "bridge_design_app.py",
+                            "InputFile":  "variable_mapping.xlsx",
+                            "Success":  false,
+                            "OutputFile":  "C:\\Users\\Rajkumar\\BridgeGAD-00\\INDIVIDUAL_TESTS_18_11_2025_1845\\Bridge_Slab_Design\\slab_design_output.json"
+                        }
+                    ]
+    }
+]
