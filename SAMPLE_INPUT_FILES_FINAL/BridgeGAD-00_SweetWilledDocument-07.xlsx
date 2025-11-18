@@ -1,0 +1,59 @@
+Value,Variable,Description
+450,SCALE1,Scale for plan and elevation views
+400,SCALE2,Scale for section views
+20,SKEW,Skew angle in degrees
+70,DATUM,Datum level (m)
+0,LEFT,Left chainage (m)
+160,RIGHT,Right chainage (m)
+40,XINCR,X increment for chainage (m)
+7,YINCR,Y increment for levels (m)
+9,NSPAN,Number of spans
+17.78,SPAN1,Span length (m)
+160,LBRIDGE,Total bridge length (m)
+0,ABTL,Abutment left position (m)
+140,RTL,Road top level (m)
+130,SOFL,Soffit level (m)
+22,CCBR,Carriageway width (m)
+0.55,KERBW,Kerb width (m)
+0.45,KERBD,Kerb depth (m)
+1.3,SLBTHE,Slab thickness at edge (m)
+0.65,APTHK,Approach slab thickness (m)
+9,LASLAB,Length of approach slab (m)
+0.22,WCTH,Wearing course thickness (m)
+134,CAPT,Cap top level (m)
+130.5,CAPB,Cap bottom level (m)
+4,CAPW,Cap width (m)
+4,PIERTW,Pier thickness width (m)
+26,PIERST,Pier thickness length (m)
+3,BATTR,Batter ratio
+1,PIERN,Pier number
+17.78,SPAN1,Span 1 length (m)
+70,FUTRL,Foundation level (m)
+4,FUTD,Foundation depth (m)
+10,FUTW,Foundation width (m)
+20,FUTL,Foundation length (m)
+26,ABTLEN,Abutment length (m)
+9,LASLAB,Length of approach slab (m)
+26,APWTH,Approach width (m)
+0.65,APTHK,Approach thickness (m)
+0.22,WCTH,Wearing course thickness (m)
+0.9,DWTH,Dirt wall thickness (m)
+2.2,ALCW,Abutment left cap width (m)
+4,ALCD,Abutment left cap depth (m)
+24,ALFB,Abutment left front batter
+107,ALFBL,Abutment left front batter level (m)
+24,ALTB,Abutment left toe batter
+103.5,ALTBL,Abutment left toe batter level (m)
+2,ALFO,Abutment left front offset (m)
+4.5,ALFD,Abutment left footing depth (m)
+16,ALBB,Abutment left back batter
+107.5,ALBBL,Abutment left back batter level (m)
+70,ALFL,Abutment left footing level (m)
+71,ARFL,Abutment right footing level (m)
+71,ALFBR,Abutment left front batter right
+103.5,ALTBR,Abutment left toe batter right
+107.5,ALBBR,Abutment left back batter right
+4.5,ALFD,Abutment left footing depth (m)
+
+
+

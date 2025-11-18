@@ -1,0 +1,27 @@
+﻿python : C:\Users\Rajkum
+ar\AppData\Local\Program
+s\Python\Python311\pytho
+n.exe: can't open file '
+C:\\Users\\Rajkumar\\Bri
+dge_GAD_Yogendra_Borse-m
+ain\\bridge_drawings.py'
+: [Errno 2] No such 
+file or directory
+At C:\Users\Rajkumar\Bri
+dge_GAD_Yogendra_Borse-m
+ain\INDIVIDUAL_APP_TESTI
+NG.ps1:92 char:15
++     $output = python 
+bridge_drawings.py 2>&1
++               ~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo      
+        : NotSpecified  
+  : (C:\Users\Rajkum.   
+ ..le or directory:S    
+tring) [], RemoteEx    
+ception
+    + FullyQualifiedErr 
+   orId : NativeComman  
+  dError
+ 
