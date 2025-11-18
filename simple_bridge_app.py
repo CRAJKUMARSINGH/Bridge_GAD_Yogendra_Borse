@@ -55,16 +55,18 @@ input_text = ""
 input_field = 0
 current_file_index = 0
 
-# List of SweetWilledDocument files
+# List of SweetWilledInputFile files
 sweet_willed_files = [
-    "SweetWilledDocument-01.xlsx",
-    "SweetWilledDocument-02.xlsx", 
-    "SweetWilledDocument-03.xlsx",
-    "SweetWilledDocument-04.xlsx",
-    "SweetWilledDocument-07.xlsx",
-    "SweetWilledDocument-08.xlsx",
-    "SweetWilledDocument-09.xlsx",
-    "SweetWilledDocument-10.xlsx"
+    "SweetWilledInputFile-01.csv",
+    "SweetWilledInputFile-02.csv", 
+    "SweetWilledInputFile-03.csv",
+    "SweetWilledInputFile-04.csv",
+    "SweetWilledInputFile-05.csv",
+    "SweetWilledInputFile-06.csv",
+    "SweetWilledInputFile-07.csv",
+    "SweetWilledInputFile-08.csv",
+    "SweetWilledInputFile-09.csv",
+    "SweetWilledInputFile-10.csv"
 ]
 
 # Default bridge parameters
@@ -1013,33 +1015,33 @@ def add_enhanced_title_block_dxf(msp, doc):
     msp.add_text("Bridge General Arrangement Drawing", dxfattribs={
         "height": 8,
         "layer": "TITLE_BLOCK"
-    }).set_placement((title_width/2, title_height - 10), align="MIDDLE_CENTER")
+    }).set_placement((title_width/2, title_height - 10))
     
     # Add scale
     scale_ratio = int(1000/bridge_params['scale1'])
     msp.add_text(f"Scale: 1:{scale_ratio}", dxfattribs={
         "height": 4,
         "layer": "TITLE_BLOCK"
-    }).set_placement((title_width - 20, title_height - 20), align="TOP_RIGHT")
+    }).set_placement((title_width - 20, title_height - 20))
     
     # Add drawing number
     msp.add_text("Drawing No: BGD-001", dxfattribs={
         "height": 4,
         "layer": "TITLE_BLOCK"
-    }).set_placement((20, title_height - 20), align="TOP_LEFT")
+    }).set_placement((20, title_height - 20))
     
     # Add date
     date_str = datetime.now().strftime("%Y-%m-%d")
     msp.add_text(f"Date: {date_str}", dxfattribs={
         "height": 4,
         "layer": "TITLE_BLOCK"
-    }).set_placement((20, title_height - 30), align="TOP_LEFT")
+    }).set_placement((20, title_height - 30))
     
     # Add designed by
     msp.add_text("Designed by: BridgeGAD-00", dxfattribs={
         "height": 4,
         "layer": "TITLE_BLOCK"
-    }).set_placement((title_width - 20, title_height - 30), align="TOP_RIGHT")
+    }).set_placement((title_width - 20, title_height - 30))
 
 def draw_layout_grid_pdf(pdf):
     """Draw layout grid in PDF."""

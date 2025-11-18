@@ -1,19 +1,21 @@
 @echo off
-echo Running Enhanced Bridge GAD Generator...
+echo Bridge GAD Generator - Enhanced Version
 echo ======================================
-echo This application generates professional bridge general arrangement drawings
-echo with enhanced DXF export capabilities incorporating LISP code functionality.
 echo.
-echo Features:
-echo - Enhanced pier and abutment drawing with proper engineering details
-echo - Professional layout grid with dimensioning
-echo - Cross-section plotting with annotations
-echo - DXF export with layers and dimension styles
-echo - PDF export capability
+echo Starting the enhanced bridge GAD generator...
 echo.
-echo Starting the application...
+echo Controls:
+echo   - Mouse Wheel: Zoom in/out
+echo   - Mouse Drag: Pan the drawing
+echo   - R: Reset view
+echo   - I: Enter input mode
+echo   - D: Save as DXF
+echo   - P: Save as PDF
+echo.
+echo Press any key to start the application...
+pause >nul
 echo.
 python simple_bridge_app.py
 echo.
-echo Application finished.
+echo Application closed.
 pause

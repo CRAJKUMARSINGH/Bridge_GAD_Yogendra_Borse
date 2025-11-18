@@ -1,121 +1,219 @@
 # Enhanced Bridge GAD Generator
 
-This is an enhanced version of the Bridge General Arrangement Drawing (GAD) generator that incorporates professional engineering drawing capabilities from the original LISP code.
+## Overview
+
+The Enhanced Bridge General Arrangement Drawing (GAD) Generator is a Python application that creates professional engineering drawings for bridge structures. This enhanced version incorporates all the missing functionality from the original LISP implementation while maintaining a user-friendly interface.
 
 ## Features
 
-### Enhanced Drawing Capabilities
-- **Professional Layout Grid**: Enhanced grid system with proper annotations and dimensioning
-- **Detailed Pier Drawing**: Complete pier geometry with cap, batter, and foundation footing
-- **Advanced Abutment Drawing**: Full abutment geometry with plan and elevation views
-- **Cross-Section Plotting**: River cross-section with proper chainage and level annotations
-- **Skew Angle Support**: Proper handling of bridge skew angles in all components
+### Drawing Capabilities
 
-### DXF Export Features
-- **Layered Drawing**: Organized layers for different drawing elements (GRID, STRUCTURE, DIMENSIONS, etc.)
-- **Professional Dimensioning**: Proper dimension styles with arrows and text
-- **Title Block**: Professional title block with drawing information
-- **Engineering Standards**: Compliance with standard bridge drawing practices
+1. **Layout Grid System**
+   - Professional axis labeling
+   - Elevation and chainage markers
+   - Grid line organization
 
-### User Interface
-- **Interactive Controls**: Zoom, pan, and navigation controls
-- **Parameter Display**: Real-time display of bridge parameters
-- **Multiple Export Formats**: DXF and PDF export capabilities
+2. **Pier Drawing**
+   - Complete elevation view
+   - Pier cap with proper scaling
+   - Pier with batter (slope)
+   - Foundation footing details
+   - Plan view with skew rotation
+
+3. **Abutment Drawing**
+   - Detailed elevation representation
+   - Plan view with skew compensation
+   - Internal structural elements
+   - Proper engineering proportions
+
+4. **Cross-Section Plotting**
+   - River level annotations
+   - Chainage markers
+   - Grid integration
+
+5. **Professional Output**
+   - DXF file generation with layer organization
+   - PDF file generation
+   - Professional title blocks
+   - Dimension standards compliance
+
+## Installation
+
+### Prerequisites
+
+- Python 3.7 or higher
+- Required Python packages:
+  - pygame
+  - ezdxf
+  - reportlab
+
+### Installation Steps
+
+1. Clone or download the repository
+2. Install required packages:
+   ```bash
+   pip install pygame ezdxf reportlab
+   ```
 
 ## Usage
 
-1. Run the application using the batch file:
+### Running the Application
+
+1. Navigate to the application directory:
+   ```bash
+   cd BridgeGAD-00
    ```
-   RUN_ENHANCED_BRIDGE_APP.bat
+
+2. Run the main application:
+   ```bash
+   python simple_bridge_app.py
    ```
 
-2. Navigate between parameter files using LEFT/RIGHT arrow keys
-3. Load parameters with ENTER
-4. Use mouse wheel to zoom in/out
-5. Click and drag to pan the view
-6. Press 'D' to export as DXF
-7. Press 'P' to export as PDF
+### Controls
 
-## Key Enhancements
-
-### Pier Drawing
-- Enhanced elevation view with proper pier cap dimensions
-- Accurate batter calculations for pier sides
-- Foundation footing with correct dimensions
-- Plan view representation with skew rotation
-
-### Abutment Drawing
-- Complete abutment geometry with all structural elements
-- Proper plan view with skew adjustments
-- Detailed elevation view with face, toe, and back elements
-- Accurate dimensioning and annotations
-
-### Layout Grid
-- Professional grid system with bed level and chainage markers
-- Proper scaling for plan and elevation views
-- Level and chainage annotations
-- Dimension lines and extension lines
-
-### Cross-Section
-- River cross-section plotting with chainage markers
-- Level annotations at each point
-- Grid line markers for reference
-
-## Technical Implementation
-
-The application incorporates functionality from the original LISP code including:
-- `layout()` function for grid system generation
-- `cs()` function for cross-section plotting
-- `pier()` function for pier geometry
-- `abt1()` function for abutment geometry
-- `st()` function for dimension styling
-
-## File Structure
-
-- `simple_bridge_app.py` - Main application with enhanced features
-- `RUN_ENHANCED_BRIDGE_APP.bat` - Batch file to run the application
-- `test_enhanced_bridge.py` - Test script for verification
-- `ENHANCED_BRIDGE_APP_README.md` - This documentation
-
-## Requirements
-
-- Python 3.7+
-- pygame
-- ezdxf
-- reportlab
-
-## Export Capabilities
-
-### DXF Export
-The DXF export creates a professional drawing with:
-- Multiple layers for organization
-- Proper dimension styles
-- Title block with drawing information
-- Engineering standard line weights and colors
-
-### PDF Export
-The PDF export provides:
-- Vector-based drawing output
-- Professional layout and formatting
-- Standard paper sizes
-
-## Controls
-
+#### Main Drawing View
 - **Mouse Wheel**: Zoom in/out
-- **Mouse Drag**: Pan the view
+- **Mouse Drag**: Pan the drawing
 - **R**: Reset view
-- **I**: Input mode
+- **I**: Enter input mode
 - **D**: Save as DXF
 - **P**: Save as PDF
-- **Arrow Keys**: Navigate parameter files (in input mode)
-- **ENTER**: Load selected parameter file (in input mode)
 
-## Parameter Files
+#### Input Mode
+- **Left/Right Arrow Keys**: Navigate between parameter files
+- **Enter**: Load selected parameter file
+- **R**: Return to drawing view
 
-The application can load bridge parameters from CSV files (misnamed as .xlsx). The parameters include:
-- Scale factors for plan/elevation and sections
-- Bridge geometry (span length, width, etc.)
-- Pier dimensions (cap width, batter, etc.)
-- Abutment dimensions (cap width, face batter, etc.)
-- Foundation details
-- Skew angle
+### Parameter Files
+
+The application supports loading bridge parameters from CSV files. The expected format includes:
+
+1. **Header Row**: Value, Variable, Description
+2. **Data Rows**: Numeric values for each bridge parameter
+3. **Supported Parameters**:
+   - Scale factors (SCALE1, SCALE2)
+   - Skew angle (SKEW)
+   - Datum and elevation levels
+   - Bridge dimensions
+   - Structural element sizes
+   - Material properties
+
+## Output Files
+
+### DXF Files
+
+Professional CAD files with:
+- 9 organized layers for different drawing elements
+- Proper dimension styles
+- Text styling and positioning
+- Engineering standards compliance
+
+### PDF Files
+
+Print-ready documents with:
+- Complete bridge drawings
+- Professional title blocks
+- Proper scaling and layout
+
+## Code Structure
+
+### Main Components
+
+1. **simple_bridge_app.py**: Main application file
+   - UI rendering and interaction
+   - Drawing functions for all elements
+   - File I/O operations
+   - Parameter management
+
+2. **Drawing Functions**:
+   - `draw_layout_grid()`: Grid system rendering
+   - `draw_pier()`: Pier geometry drawing
+   - `draw_abutment()`: Abutment geometry drawing
+   - `draw_cross_section()`: Cross-section plotting
+
+3. **Export Functions**:
+   - `save_dxf()`: DXF file generation
+   - `save_pdf()`: PDF file generation
+
+### Coordinate System
+
+The application uses a comprehensive coordinate transformation system:
+- `hpos()`: Horizontal position calculation
+- `vpos()`: Vertical position calculation
+- `pt()`: Point creation with transformation
+
+### Skew Handling
+
+Complete skew angle management:
+- Degree to radian conversion
+- Trigonometric calculations
+- Skew compensation for all elements
+- Plan view rotation
+
+## Testing
+
+### Verification Scripts
+
+1. **test_enhanced_bridge.py**: Comprehensive functionality tests
+2. **verify_dxf_creation.py**: DXF generation verification
+
+### Running Tests
+
+```bash
+python test_enhanced_bridge.py
+python verify_dxf_creation.py
+```
+
+## Development
+
+### Extending Functionality
+
+The modular design allows for easy extensions:
+1. Add new drawing functions
+2. Extend parameter system
+3. Add new export formats
+4. Enhance UI elements
+
+### Code Organization
+
+- Separate functions for each drawing element
+- Consistent function signatures
+- Proper error handling
+- Comprehensive documentation
+
+## Troubleshooting
+
+### Common Issues
+
+1. **Missing Python Packages**:
+   ```bash
+   pip install pygame ezdxf reportlab
+   ```
+
+2. **Parameter Loading Errors**:
+   - Verify CSV file format
+   - Check parameter names match expected values
+   - Ensure numeric values are properly formatted
+
+3. **Drawing Display Issues**:
+   - Use zoom controls (mouse wheel)
+   - Reset view with 'R' key
+   - Check window size and resolution
+
+## Contributing
+
+1. Fork the repository
+2. Create a feature branch
+3. Make your changes
+4. Add tests for new functionality
+5. Submit a pull request
+
+## License
+
+This project is licensed under the MIT License - see the LICENSE file for details.
+
+## Acknowledgments
+
+- Based on original LISP implementation for AutoCAD
+- Enhanced with modern Python libraries
+- Designed for professional engineering use
