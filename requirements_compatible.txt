@@ -1,0 +1,37 @@
+# Bridge GAD Requirements with Known Compatible Versions
+# Core dependencies for bridge drawing generation
+
+# DXF file handling
+ezdxf==0.18.1
+
+# PDF generation
+reportlab==3.6.12
+
+# GUI framework
+pygame==2.1.2
+
+# Data processing
+numpy==1.23.5
+pandas==1.5.3
+matplotlib==3.6.3
+openpyxl==3.0.10
+scipy==1.10.0
+requests==2.28.2
+
+# Excel file handling
+xlrd==2.0.1
+
+# YAML configuration
+PyYAML==6.0
+
+# Type hints support
+typing-extensions==4.4.0
+
+# Image processing for splash screen
+Pillow==9.4.0
+
+# PDF viewer for in-app manual
+tkPDFViewer==0.1
+
+# Development dependencies (optional)
+pytest==7.2.1

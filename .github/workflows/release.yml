@@ -1,0 +1,143 @@
+name: Build & Release Bridge_GAD
+
+on:
+  push:
+    tags:
+      - 'v*'  # e.g. v1.0.0
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install Dependencies
+        run: |
+          pip install -r requirements.txt
+          pip install -r requirements-dev.txt
+          pip install pyinstaller pypandoc pillow tkPDFViewer
+
+      - name: Build Executables
+        run: |
+          pyinstaller --onefile --noconsole ^
+            --name Bridge_GAD_GUI ^
+            --icon=bridge.ico ^
+            --version-file file_version_info.txt ^
+            --add-data "docs\Bridge_GAD_User_Manual.md;docs" ^
+            --add-data "docs\Bridge_GAD_User_Manual.pdf;docs" ^
+            src\bridge_gad\gui.py
+          pyinstaller --onefile --noconsole ^
+            --name Bridge_GAD ^
+            src\bridge_gad\__main__.py
+
+      - name: Generate PDF Manual
+        run: |
+          python docs\build_manual.py
+
+      - name: Sign Executables (if certificate available)
+        if: ${{ secrets.SIGNING_CERT != '' }}
+        run: |
+          # Decode the certificate from secrets
+          echo "${{ secrets.SIGNING_CERT }}" | certutil -decode - signcert.pfx
+          # Sign the executables
+          signtool sign /f signcert.pfx /p "${{ secrets.SIGNING_PASS }}" /tr http://timestamp.digicert.com /td sha256 /fd sha256 dist\Bridge_GAD_GUI.exe
+          signtool sign /f signcert.pfx /p "${{ secrets.SIGNING_PASS }}" /tr http://timestamp.digicert.com /td sha256 /fd sha256 dist\Bridge_GAD.exe
+
+      - name: Build Installer
+        run: |
+          # Check if Inno Setup is available (pre-installed on GitHub Actions Windows runners)
+          if (Test-Path "C:\Program Files (x86)\Inno Setup 6\ISCC.exe") {
+            & "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" Bridge_GAD_Installer.iss
+          } else {
+            echo "Inno Setup not found, skipping installer build"
+          }
+
+      - name: Archive Build Artifacts
+        run: |
+          mkdir release
+          if (Test-Path dist\Bridge_GAD.exe) {
+            Move-Item dist\Bridge_GAD.exe release\
+          }
+          if (Test-Path dist\Bridge_GAD_GUI.exe) {
+            Move-Item dist\Bridge_GAD_GUI.exe release\
+          }
+          if (Test-Path dist\Bridge_GAD_Setup.exe) {
+            Move-Item dist\Bridge_GAD_Setup.exe release\
+          }
+          if (Test-Path docs\Bridge_GAD_User_Manual.pdf) {
+            Move-Item docs\Bridge_GAD_User_Manual.pdf release\
+          }
+
+      - name: Upload Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: Bridge_GAD_Release
+          path: release/
+
+  release:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Download Build Artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: Bridge_GAD_Release
+          path: ./release
+
+      - name: Get Release Notes
+        id: release_notes
+        run: |
+          # Extract version from tag
+          VERSION=${GITHUB_REF#refs/tags/v}
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          
+          # Create release notes
+          echo "## Bridge_GAD v$VERSION" > release_notes.md
+          echo "" >> release_notes.md
+          echo "### What's New" >> release_notes.md
+          echo "" >> release_notes.md
+          echo "- Enhanced GUI with professional branding" >> release_notes.md
+          echo "- Integrated user manual with PDF viewer" >> release_notes.md
+          echo "- Auto-update functionality" >> release_notes.md
+          echo "- Digital signature support" >> release_notes.md
+          echo "- Professional Windows installer" >> release_notes.md
+          echo "" >> release_notes.md
+          echo "### Assets" >> release_notes.md
+          echo "" >> release_notes.md
+          echo "This release includes the following assets:" >> release_notes.md
+          echo "" >> release_notes.md
+          echo "- \`Bridge_GAD_GUI.exe\` - Graphical User Interface (standalone)" >> release_notes.md
+          echo "- \`Bridge_GAD.exe\` - Command Line Interface (standalone)" >> release_notes.md
+          echo "- \`Bridge_GAD_Setup.exe\` - Professional Windows Installer" >> release_notes.md
+          echo "- \`Bridge_GAD_User_Manual.pdf\` - Complete User Manual" >> release_notes.md
+          echo "" >> release_notes.md
+          echo "### Installation" >> release_notes.md
+          echo "" >> release_notes.md
+          echo "1. Download and run \`Bridge_GAD_Setup.exe\` for a full installation" >> release_notes.md
+          echo "2. Or download \`Bridge_GAD_GUI.exe\` for a portable version" >> release_notes.md
+          echo "3. Refer to \`Bridge_GAD_User_Manual.pdf\` for detailed usage instructions" >> release_notes.md
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          body_path: release_notes.md
+          files: |
+            release/Bridge_GAD_GUI.exe
+            release/Bridge_GAD.exe
+            release/Bridge_GAD_Setup.exe
+            release/Bridge_GAD_User_Manual.pdf
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
