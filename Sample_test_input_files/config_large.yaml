@@ -1,7 +1,0 @@
-bridge:
-  output_format: both
-  scale: 200
-drawing:
-  detailed: true
-  title: Large Bridge Test
-  units: mm

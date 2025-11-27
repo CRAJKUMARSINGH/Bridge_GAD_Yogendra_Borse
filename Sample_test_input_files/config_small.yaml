@@ -1,6 +1,0 @@
-bridge:
-  output_format: dxf
-  scale: 100
-drawing:
-  title: Small Bridge Test
-  units: mm
