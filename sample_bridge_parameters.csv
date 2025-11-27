@@ -1,8 +1,0 @@
-Parameter,Value,Unit,Description
-span_length,20,m,Span length of the bridge
-deck_width,10,m,Width of the bridge deck
-material_grade,M30,,Concrete grade
-design_load,DL+LL,kN/m,Design load combination
-exposure_condition,Mild,,Environmental exposure condition
-bearing_capacity,250,kN/m2,Soil bearing capacity
-clear_cover,40,mm,Concrete clear cover
