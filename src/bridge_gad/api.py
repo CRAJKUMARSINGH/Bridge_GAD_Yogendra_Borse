@@ -42,9 +42,11 @@ async def root():
     return {
         "name": "Bridge GAD Generator API",
         "version": __version__,
+        "description": "REST API for generating Bridge General Arrangement Drawings",
         "endpoints": [
-            {"path": "/predict", "method": "POST", "description": "Generate bridge drawing"},
+            {"path": "/predict", "method": "POST", "description": "Generate bridge drawing from Excel file"},
             {"path": "/health", "method": "GET", "description": "Health check"},
+            {"path": "/docs", "method": "GET", "description": "API documentation"}
         ]
     }
 

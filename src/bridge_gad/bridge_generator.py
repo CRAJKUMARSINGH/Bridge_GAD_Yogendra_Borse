@@ -18,7 +18,12 @@ logger = logging.getLogger(__name__)
 class BridgeGADGenerator:
     """Main class for generating comprehensive bridge general arrangement drawings."""
     
-    def __init__(self):
+    def __init__(self, acad_version: str = "R2010"):
+        """Initialize with optional AutoCAD version selection.
+        
+        Args:
+            acad_version: AutoCAD version format (R2006, R2010, etc.)
+        """
         self.doc = None
         self.msp = None
         self.variables = {}
@@ -30,13 +35,40 @@ class BridgeGADGenerator:
         self.hhs = 1000.0  # horizontal scale factor
         self.vvs = 1000.0  # vertical scale factor
         self.sc = 1.86     # scale ratio
+        self.acad_version = self._validate_acad_version(acad_version)
+        
+    def _validate_acad_version(self, version: str) -> str:
+        """Validate and normalize AutoCAD version format.
+        
+        Args:
+            version: Version string (R2006, 2006, R2010, 2010, etc.)
+            
+        Returns:
+            Validated version string in ezdxf format
+        """
+        # Supported versions: R2006 (DXF 18), R2010 (DXF 15)
+        supported = {"R2006", "R2010", "2006", "2010"}
+        version_upper = str(version).upper()
+        
+        # Normalize version
+        if version_upper in {"2006", "2006"}:
+            return "R2006"
+        elif version_upper in {"2010", "2010"}:
+            return "R2010"
+        elif version_upper == "R2006":
+            return "R2006"
+        elif version_upper == "R2010":
+            return "R2010"
+        else:
+            logger.warning(f"Unknown AutoCAD version {version}, using R2010 (default)")
+            return "R2010"
         
     def setup_document(self):
         """Initialize DXF document with proper setup."""
-        self.doc = ezdxf.new("R2010", setup=True)
+        self.doc = ezdxf.new(self.acad_version, setup=True)
         self.msp = self.doc.modelspace()
         self.setup_styles()
-        logger.info("Document setup completed")
+        logger.info(f"Document setup completed - Format: {self.acad_version}")
         
     def setup_styles(self):
         """Set up text and dimension styles."""
@@ -727,25 +759,151 @@ class BridgeGADGenerator:
         except Exception as e:
             logger.error(f"Error adding dimensions: {e}")
     
+    def draw_a4_border(self):
+        """Draw A4 landscape border with professional frame."""
+        try:
+            right = float(self.variables.get('RIGHT', 50))
+            lbridge = float(self.variables.get('LBRIDGE', 36))
+            
+            # A4 landscape dimensions in mm (1mm = 2.834645669 drawing units)
+            # 297mm width × 210mm height = 841.89 × 595.27 units
+            # Scale to drawing: make it visible and proportional
+            border_margin = 50
+            border_left = self.hpos(self.left) - border_margin
+            border_right = self.hpos(right) + 100 * self.scale1
+            border_top = self.vpos(float(self.variables.get('TOPRL', 115))) + 200
+            border_bottom = self.datum - 120 * self.scale1
+            
+            # Draw A4 landscape border rectangle
+            border_points = [
+                (border_left, border_top),
+                (border_right, border_top),
+                (border_right, border_bottom),
+                (border_left, border_bottom)
+            ]
+            self.msp.add_lwpolyline(border_points, close=True, dxfattribs={'lineweight': 35})
+            
+            # Inner frame
+            inner_margin = 20
+            inner_points = [
+                (border_left + inner_margin, border_top - inner_margin),
+                (border_right - inner_margin, border_top - inner_margin),
+                (border_right - inner_margin, border_bottom + inner_margin),
+                (border_left + inner_margin, border_bottom + inner_margin)
+            ]
+            self.msp.add_lwpolyline(inner_points, close=True)
+            
+            logger.info("A4 landscape border drawn")
+        except Exception as e:
+            logger.error(f"Error drawing A4 border: {e}")
+    
     def add_title_block(self):
-        """Add title block with project information."""
-        lbridge = float(self.variables.get('LBRIDGE', 36))
-        
-        # Title text positions
-        title_x = self.hpos(lbridge / 2)
-        title_y = self.datum - 160
-        
-        texts = [
-            ("GENERAL ARRANGEMENT DRAWING", title_x, title_y, 500),
-            ("BRIDGE DESIGN", title_x, title_y - 40, 400),
-        ]
-        
-        for text, x, y, height in texts:
-            self.msp.add_text(text, dxfattribs={
-                'height': height,
-                'insert': (x, y),
-                'halign': 1  # Center alignment
-        })
+        """Add editable title block with RKS LEGAL company information."""
+        try:
+            right = float(self.variables.get('RIGHT', 50))
+            lbridge = float(self.variables.get('LBRIDGE', 36))
+            
+            # Get editable values from Excel
+            project_name = str(self.variables.get('PROJECT_NAME', 'Bridge General Arrangement Drawing'))
+            company_name = str(self.variables.get('COMPANY_NAME', 'RKS LEGAL'))
+            company_full = str(self.variables.get('COMPANY_FULL', 'Techno Legal Consultants'))
+            address = str(self.variables.get('ADDRESS', '303 Vallabh Apartment, Navratna Complex, Bhuwana, Udaipur -313001'))
+            email = str(self.variables.get('EMAIL', 'crajkumarsingh@hotmail.com'))
+            mobile = str(self.variables.get('MOBILE', '+919414163019'))
+            
+            # Position title block on right side of drawing
+            title_block_x = self.hpos(right) + 50 * self.scale1
+            title_block_y = self.vpos(float(self.variables.get('TOPRL', 115))) + 100
+            
+            # Main title
+            self.msp.add_text("GENERAL ARRANGEMENT DRAWING", dxfattribs={
+                'height': 3.0 * self.scale1,
+                'insert': (title_block_x, title_block_y),
+                'halign': 0
+            })
+            
+            # Project name (editable)
+            y_pos = title_block_y - 4.0 * self.scale1
+            self.msp.add_text(f"Project: {project_name}", dxfattribs={
+                'height': 2.0 * self.scale1,
+                'insert': (title_block_x, y_pos),
+                'halign': 0
+            })
+            
+            # Company information box
+            y_pos -= 5.0 * self.scale1
+            self.msp.add_text(company_name, dxfattribs={
+                'height': 2.5 * self.scale1,
+                'insert': (title_block_x, y_pos),
+                'halign': 0,
+                'style': 'Arial'
+            })
+            
+            y_pos -= 3.0 * self.scale1
+            self.msp.add_text(company_full, dxfattribs={
+                'height': 1.8 * self.scale1,
+                'insert': (title_block_x, y_pos),
+                'halign': 0
+            })
+            
+            # Address
+            y_pos -= 2.5 * self.scale1
+            self.msp.add_text(address, dxfattribs={
+                'height': 1.5 * self.scale1,
+                'insert': (title_block_x, y_pos),
+                'halign': 0
+            })
+            
+            # Contact info
+            y_pos -= 2.0 * self.scale1
+            self.msp.add_text(f"Email: {email}", dxfattribs={
+                'height': 1.3 * self.scale1,
+                'insert': (title_block_x, y_pos),
+                'halign': 0
+            })
+            
+            y_pos -= 1.8 * self.scale1
+            self.msp.add_text(f"Mobile: {mobile}", dxfattribs={
+                'height': 1.3 * self.scale1,
+                'insert': (title_block_x, y_pos),
+                'halign': 0
+            })
+            
+            logger.info("Title block with RKS LEGAL information added")
+        except Exception as e:
+            logger.error(f"Error adding title block: {e}")
+    
+    def add_project_name_footer(self):
+        """Add full-width project name at bottom of drawing."""
+        try:
+            right = float(self.variables.get('RIGHT', 50))
+            
+            # Get project name from Excel
+            project_name = str(self.variables.get('PROJECT_NAME', 'Bridge General Arrangement Drawing'))
+            project_code = str(self.variables.get('PROJECT_CODE', ''))
+            
+            # Position at bottom, full width
+            footer_x = self.hpos(self.left + (right - self.left) / 2)  # Center horizontally
+            footer_y = self.datum - 130 * self.scale1  # Bottom of page
+            
+            # Draw footer text
+            footer_text = f"{project_name}" + (f" | {project_code}" if project_code else "")
+            self.msp.add_text(footer_text, dxfattribs={
+                'height': 3.5 * self.scale1,
+                'insert': (footer_x, footer_y),
+                'halign': 1,  # Center alignment
+                'style': 'Arial'
+            })
+            
+            # Draw horizontal line above footer
+            line_y = footer_y + 2.0 * self.scale1
+            line_x1 = self.hpos(self.left)
+            line_x2 = self.hpos(right)
+            self.msp.add_line((line_x1, line_y), (line_x2, line_y))
+            
+            logger.info("Project name footer added")
+        except Exception as e:
+            logger.error(f"Error adding project footer: {e}")
     
     def draw_side_elevation(self):
         """Draw side elevation view showing cross-section of bridge components."""
@@ -767,20 +925,21 @@ class BridgeGADGenerator:
             futd = float(self.variables.get('FUTD', 1.0))
             futw = float(self.variables.get('FUTW', 4.5))
             futl = float(self.variables.get('FUTL', 12))
+            right = float(self.variables.get('RIGHT', 50))
             
-            # Position side elevation to the right of main drawing
-            # Calculate offset to position side elevation
+            # Position side elevation to the right of main drawing with margin
             lbridge = float(self.variables.get('LBRIDGE', 36))
-            side_x_offset = self.hpos(lbridge + 20)  # 20m spacing from main drawing
-            side_y_base = self.datum
+            side_x_offset = self.hpos(right) + 40 * self.scale1  # Fixed pixels offset from main drawing
+            side_y_base = self.datum  # Start at datum level
             
-            # Draw deck cross-section
-            self.draw_deck_cross_section(side_x_offset, side_y_base, ccbr, kerbw, slbthe, kerbd, rtl)
+            # Draw deck cross-section with calculated bounds
+            deck_bounds = self.draw_deck_cross_section(side_x_offset, side_y_base, ccbr, kerbw, slbthe, kerbd, rtl)
             
-            # Draw typical pier cross-section
-            if nspan > 1:
-                pier_y_offset = -15.0 * self.scale1  # Position below deck
-                self.draw_pier_cross_section(side_x_offset, side_y_base + pier_y_offset, 
+            # Draw typical pier cross-section below deck
+            if nspan > 1 and deck_bounds:
+                # Position pier section 5 units below deck bottom
+                pier_y_offset = deck_bounds['y_bottom'] - 10 * self.scale1
+                self.draw_pier_cross_section(side_x_offset, pier_y_offset, 
                                            piertw, pierst, capt, capb, futrl, futd, futw, futl)
             
             logger.info("Side elevation drawing completed")
@@ -790,18 +949,23 @@ class BridgeGADGenerator:
     
     def draw_deck_cross_section(self, x_offset: float, y_base: float, ccbr: float, 
                                kerbw: float, slbthe: float, kerbd: float, rtl: float):
-        """Draw deck cross-section showing carriageway and kerbs."""
-        # Calculate deck section dimensions
+        """Draw deck cross-section showing carriageway and kerbs. Returns bounds for label positioning."""
+        # Calculate deck section dimensions with direct scaling
         total_width = ccbr + 2 * kerbw
+        deck_thickness = slbthe
         
-        # Use scale factor for section view
+        # Direct coordinate calculations (no double scaling)
+        section_scale = 0.5  # Scale down section for visibility
         x_start = x_offset
-        x_center = x_start + self.h2pos(total_width / 2)
-        x_end = x_start + self.h2pos(total_width)
+        width_scaled = total_width * self.hhs * section_scale
+        x_center = x_start + width_scaled / 2
+        x_end = x_start + width_scaled
         
-        y_deck_top = self.v2pos(rtl)
-        y_deck_bottom = self.v2pos(rtl - slbthe)
-        y_kerb_top = self.v2pos(rtl + kerbd)
+        # Vertical positions - use datum offset
+        height_offset = self.vvs * section_scale
+        y_deck_top = y_base
+        y_deck_bottom = y_base - deck_thickness * height_offset
+        y_kerb_top = y_base + kerbd * height_offset
         
         # Draw main deck slab
         deck_points = [
@@ -813,7 +977,8 @@ class BridgeGADGenerator:
         self.msp.add_lwpolyline(deck_points, close=True)
         
         # Draw left kerb
-        left_kerb_x = x_start + self.h2pos(kerbw)
+        kerb_width_scaled = kerbw * self.hhs * section_scale
+        left_kerb_x = x_start + kerb_width_scaled
         left_kerb_points = [
             (x_start, y_deck_top),
             (left_kerb_x, y_deck_top),
@@ -823,7 +988,7 @@ class BridgeGADGenerator:
         self.msp.add_lwpolyline(left_kerb_points, close=True)
         
         # Draw right kerb
-        right_kerb_x = x_end - self.h2pos(kerbw)
+        right_kerb_x = x_end - kerb_width_scaled
         right_kerb_points = [
             (right_kerb_x, y_deck_top),
             (x_end, y_deck_top),
@@ -832,40 +997,48 @@ class BridgeGADGenerator:
         ]
         self.msp.add_lwpolyline(right_kerb_points, close=True)
         
-        # Add section label
+        # Add section label - dynamically positioned above section with proper spacing
         label_x = x_center
-        label_y = y_kerb_top + 2.0 * self.scale1
+        label_spacing = max(3.0 * self.scale1, 50)  # Dynamic spacing based on scale
+        label_y = y_kerb_top + label_spacing
         self.msp.add_text("SECTION A-A", dxfattribs={
             'height': 2.0 * self.scale1,
             'insert': (label_x, label_y),
-            'halign': 1  # Center alignment
+            'halign': 1,  # Center alignment
+            'valign': 0   # Bottom alignment
         })
         
-        # Add carriageway width dimension
-        dim_y = y_deck_bottom - 3.0 * self.scale1
-        dim = self.msp.add_linear_dim(
-            base=(x_center, dim_y),
-            p1=(left_kerb_x, y_deck_top),
-            p2=(right_kerb_x, y_deck_top),
-            angle=0,
-            dimstyle="PMB100"
-        )
-        dim.render()
+        # Store bounds for next section positioning
+        return {
+            'x_start': x_start,
+            'x_end': x_end,
+            'x_center': x_center,
+            'y_top': y_deck_top,
+            'y_bottom': y_deck_bottom,
+            'y_kerb': y_kerb_top,
+            'label_y': label_y
+        }
     
     def draw_pier_cross_section(self, x_offset: float, y_base: float, piertw: float, 
                                pierst: float, capt: float, capb: float, futrl: float, 
                                futd: float, futw: float, futl: float):
         """Draw typical pier cross-section."""
-        # Position pier section
-        pier_center_x = x_offset + self.h2pos(pierst / 2)
+        # Direct coordinate calculations (no double scaling)
+        section_scale = 0.5
+        height_offset = self.vvs * section_scale
+        
+        # Pier center position
+        pier_width_scaled = pierst * self.hhs * section_scale
+        pier_center_x = x_offset + pier_width_scaled / 2
         
         # Draw pier cap in section
-        cap_width_section = piertw  # Show actual thickness in section
-        cap_x_start = pier_center_x - self.h2pos(cap_width_section / 2)
-        cap_x_end = pier_center_x + self.h2pos(cap_width_section / 2)
+        cap_width_scaled = piertw * self.hhs * section_scale
+        cap_x_start = pier_center_x - cap_width_scaled / 2
+        cap_x_end = pier_center_x + cap_width_scaled / 2
         
-        cap_y_top = self.v2pos(capt)
-        cap_y_bottom = self.v2pos(capb)
+        cap_height = (capt - capb) * height_offset
+        cap_y_top = y_base
+        cap_y_bottom = y_base - cap_height
         
         cap_points = [
             (cap_x_start, cap_y_top),
@@ -875,9 +1048,10 @@ class BridgeGADGenerator:
         ]
         self.msp.add_lwpolyline(cap_points, close=True)
         
-        # Draw pier shaft in section (rectangular - no batter shown in cross-section)
+        # Draw pier shaft in section
+        shaft_height = (capb - futrl) * height_offset
         shaft_y_top = cap_y_bottom
-        shaft_y_bottom = self.v2pos(futrl)
+        shaft_y_bottom = cap_y_bottom - shaft_height
         
         shaft_points = [
             (cap_x_start, shaft_y_top),
@@ -888,12 +1062,13 @@ class BridgeGADGenerator:
         self.msp.add_lwpolyline(shaft_points, close=True)
         
         # Draw footing in section
-        footing_width_section = futw
-        footing_x_start = pier_center_x - self.h2pos(footing_width_section / 2)
-        footing_x_end = pier_center_x + self.h2pos(footing_width_section / 2)
+        footing_width_scaled = futw * self.hhs * section_scale
+        footing_x_start = pier_center_x - footing_width_scaled / 2
+        footing_x_end = pier_center_x + footing_width_scaled / 2
         
-        footing_y_top = self.v2pos(futrl)
-        footing_y_bottom = self.v2pos(futrl - futd)
+        footing_height = futd * height_offset
+        footing_y_top = shaft_y_bottom
+        footing_y_bottom = footing_y_top - footing_height
         
         footing_points = [
             (footing_x_start, footing_y_top),
@@ -903,25 +1078,16 @@ class BridgeGADGenerator:
         ]
         self.msp.add_lwpolyline(footing_points, close=True)
         
-        # Add section label
+        # Add section label - dynamically positioned above pier cap with proper spacing
         label_x = pier_center_x
-        label_y = cap_y_top + 2.0 * self.scale1
+        label_spacing = max(3.0 * self.scale1, 50)  # Dynamic spacing based on scale
+        label_y = cap_y_top + label_spacing
         self.msp.add_text("SECTION B-B (TYPICAL PIER)", dxfattribs={
             'height': 2.0 * self.scale1,
             'insert': (label_x, label_y),
-            'halign': 1  # Center alignment
+            'halign': 1,  # Center alignment
+            'valign': 0   # Bottom alignment
         })
-        
-        # Add pier width dimension
-        dim_y = footing_y_bottom - 3.0 * self.scale1
-        dim = self.msp.add_linear_dim(
-            base=(pier_center_x, dim_y),
-            p1=(footing_x_start, footing_y_top),
-            p2=(footing_x_end, footing_y_top),
-            angle=0,
-            dimstyle="PMB100"
-        )
-        dim.render()
     
     def add_span_dimensions(self):
         """Add span length dimensions."""
@@ -958,6 +1124,10 @@ class BridgeGADGenerator:
             # Draw all components
             logger.info("Starting bridge drawing generation...")
             
+            # Draw border and title block first (underneath)
+            self.draw_a4_border()
+            
+            # Main drawing elements
             self.draw_layout_and_axes()
             self.draw_cross_section_profile()
             self.draw_bridge_superstructure()
@@ -966,6 +1136,10 @@ class BridgeGADGenerator:
             self.draw_plan_view()
             self.draw_side_elevation()
             self.add_dimensions_and_labels()
+            
+            # Add title block and footer
+            self.add_title_block()
+            self.add_project_name_footer()
             
             # Save the drawing
             self.doc.saveas(output_file)
