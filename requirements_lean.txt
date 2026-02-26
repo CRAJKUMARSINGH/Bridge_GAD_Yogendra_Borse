@@ -1,0 +1,14 @@
+# Bridge GAD Generator - Lean Requirements
+# Following BridgeCanvas's winning pattern: MINIMAL dependencies
+
+# Core bridge design (ESSENTIAL)
+ezdxf>=1.4.2
+pandas>=2.3.1
+openpyxl>=3.1.5
+numpy>=1.24.0
+
+# Streamlit web interface (UI)
+streamlit>=1.38.0
+
+# Utilities
+python-dotenv>=1.0.0

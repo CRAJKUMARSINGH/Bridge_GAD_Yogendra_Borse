@@ -37,6 +37,7 @@ def test_drawing_generation():
     # Import required modules
     try:
         from bridge_gad.bridge_generator import BridgeGADGenerator, generate_bridge_gad
+        from bridge_gad.enhanced_io_utils import SmartInputProcessor
         print("✅ Modules imported successfully\n")
     except ImportError as e:
         print(f"❌ Import error: {e}")
@@ -76,11 +77,23 @@ def test_drawing_generation():
             # Start timer
             start_time = time.time()
             
+            # Use smart input processor for better format handling
+            print(f"  → Reading input with smart processor...")
+            processor = SmartInputProcessor()
+            
+            try:
+                params = processor.read_input(test_file)
+                params = processor.validate_parameters(params)
+                print(f"  → Loaded {len(params)} parameters")
+            except Exception as e:
+                print(f"  ⚠️  Smart processor failed, using direct method: {e}")
+                # Fallback to direct generation
+                params = None
+            
             # Generate date-stamped output filename
             base_name = test_file.stem
             output_file = outputs_dir / f"{base_name}_{test_timestamp}.dxf"
             
-            print(f"  → Input: {test_file}")
             print(f"  → Output: {output_file}")
             print(f"  → Generating DXF drawing...")
             
