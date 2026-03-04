@@ -710,7 +710,10 @@ class BridgeGADGenerator:
         self.draw_single_abutment_foundation_plan(right_abt_pos, abtlen, yc, "A2")
     
     def draw_single_abutment_foundation_plan(self, abt_x: float, abtlen: float, yc: float, label: str):
-        """Draw foundation plan for a single abutment."""
+        """Draw foundation plan for a single abutment with dirt wall."""
+        # Get dirt wall thickness
+        dwth = float(self.variables.get('DWTH', 0.3))
+        
         # Foundation dimensions with extensions
         foundation_ext = 1.5  # Extension beyond abutment
         
@@ -736,13 +739,54 @@ class BridgeGADGenerator:
         
         self.msp.add_lwpolyline(foundation_points, close=True)
         
-        # Add abutment label
-        label_x = self.hpos(abt_x)
-        label_y = self.vpos(y_top + 2.0)
+        # Draw dirt wall in plan view
+        # Dirt wall is perpendicular to bridge axis
+        dwth_sq = dwth / cos(radians(self.skew))
+        
+        # Determine dirt wall position based on abutment side
+        if label == "A1":  # Left abutment - dirt wall on left side
+            dw_x = abt_x - dwth
+            dw_x_inner = abt_x
+        else:  # Right abutment - dirt wall on right side
+            dw_x = abt_x
+            dw_x_inner = abt_x + dwth
+        
+        # Dirt wall extends full width of abutment
+        xx_abt = abtlen / 2
+        x_adjust_abt = xx_abt * sin(radians(self.skew))
+        y_adjust_abt = xx_abt * (1 - cos(radians(self.skew)))
+        
+        y_top_abt = yc + abtlen / 2
+        y_bottom_abt = yc - abtlen / 2
+        
+        # Draw dirt wall rectangle
+        dw_points = [
+            self.pt(dw_x - x_adjust_abt, y_top_abt - y_adjust_abt),
+            self.pt(dw_x_inner - x_adjust_abt, y_top_abt - y_adjust_abt),
+            self.pt(dw_x_inner + x_adjust_abt, y_bottom_abt + y_adjust_abt),
+            self.pt(dw_x + x_adjust_abt, y_bottom_abt + y_adjust_abt)
+        ]
+        
+        self.msp.add_lwpolyline(dw_points, close=True)
+        
+        # Add abutment label - position based on which abutment
+        # Place label outside the foundation, with better spacing
+        label_offset = 3.0  # Increased offset for better visibility
+        
+        if label == "A1":  # Left abutment
+            # Place label to the left of the foundation
+            label_x = self.hpos(x_left - label_offset)
+            label_y = self.vpos(yc)  # Center vertically
+        else:  # A2 - Right abutment
+            # Place label to the right of the foundation
+            label_x = self.hpos(x_right + label_offset)
+            label_y = self.vpos(yc)  # Center vertically
+        
         self.msp.add_text(label, dxfattribs={
-            'height': 1.5 * self.scale1,
+            'height': 2.0 * self.scale1,  # Slightly larger for visibility
             'insert': (label_x, label_y),
-            'halign': 1  # Center alignment
+            'halign': 1,  # Center alignment
+            'valign': 2   # Middle vertical alignment
         })
     
     def add_dimensions_and_labels(self):
