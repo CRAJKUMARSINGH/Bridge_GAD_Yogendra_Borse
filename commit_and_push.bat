@@ -1,7 +1,7 @@
 @echo off
 echo Configuring Git...
-git config --global user.email "crajkumarsingh@hotmail.com"
-git config --global user.name "RAJKUMAR SINGH CHAUHAN"
+git config --global user.email "%GIT_USER_EMAIL%"
+git config --global user.name "%GIT_USER_NAME%"
 
 echo.
 echo Checking Git status...

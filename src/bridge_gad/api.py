@@ -33,9 +33,9 @@ import shutil
 from . import __version__
 from .config import Settings, load_settings
 from .core import generate_bridge_drawing
-from .logger_config import setup_logging
+from .logger_config import configure_logging
 
-setup_logging()
+configure_logging()
 logger = logging.getLogger(__name__)
 
 # ── MIME type map ─────────────────────────────────────────────────────────────

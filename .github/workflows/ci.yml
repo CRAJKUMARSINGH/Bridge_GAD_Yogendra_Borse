@@ -109,6 +109,10 @@ jobs:
       - name: Robotic pipeline smoke test
         run: python scripts/robotic_test_harness.py
 
+      # ── Netlify deploy readiness ──────────────────────────────────────────
+      - name: Netlify deploy readiness check
+        run: python scripts/test_netlify_readiness.py
+
   security:
     runs-on: ubuntu-latest
     steps:

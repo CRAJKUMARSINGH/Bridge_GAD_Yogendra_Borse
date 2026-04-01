@@ -1,0 +1,380 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Bridge GAD Generator — RKS LEGAL</title>
+  <meta name="description" content="Professional Bridge General Arrangement Drawing Generator. Excel to DXF, PDF, and more. By RKS LEGAL Techno Legal Consultants." />
+  <style>
+    :root {
+      --bg:       #0d1117;
+      --surface:  #161b22;
+      --elevated: #1c2333;
+      --cyan:     #00d4ff;
+      --amber:    #ffb347;
+      --green:    #39ff14;
+      --purple:   #bf5fff;
+      --text:     #e6edf3;
+      --muted:    #8b949e;
+      --border:   rgba(255,255,255,0.08);
+      --radius:   14px;
+    }
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background: linear-gradient(135deg, #0d1117 0%, #0f1923 50%, #0d1117 100%);
+      color: var(--text);
+      min-height: 100vh;
+      line-height: 1.6;
+    }
+
+    /* ── Nav ── */
+    nav {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 1rem 2rem;
+      border-bottom: 1px solid var(--border);
+      backdrop-filter: blur(12px);
+      position: sticky; top: 0; z-index: 100;
+      background: rgba(13,17,23,0.85);
+    }
+    .nav-brand { font-size: 1rem; font-weight: 700; color: var(--cyan); letter-spacing: 0.05em; }
+    .nav-links { display: flex; gap: 1.5rem; }
+    .nav-links a { color: var(--muted); text-decoration: none; font-size: 0.85rem; transition: color .2s; }
+    .nav-links a:hover { color: var(--cyan); }
+
+    /* ── Hero ── */
+    .hero {
+      text-align: center;
+      padding: 5rem 2rem 3rem;
+      position: relative;
+      overflow: hidden;
+    }
+    .hero::before {
+      content: '';
+      position: absolute; inset: 0;
+      background: radial-gradient(ellipse at 50% 0%, rgba(0,212,255,0.07) 0%, transparent 65%);
+      pointer-events: none;
+    }
+    .hero-icon { font-size: 4rem; display: block; margin-bottom: 1rem; }
+    h1 {
+      font-size: clamp(2rem, 5vw, 3.2rem);
+      font-weight: 800;
+      background: linear-gradient(90deg, var(--cyan), var(--purple), var(--amber));
+      -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+      background-clip: text;
+      letter-spacing: -0.5px;
+      margin-bottom: 1rem;
+    }
+    .hero-sub {
+      color: var(--muted); font-size: 1.05rem; max-width: 560px; margin: 0 auto 2rem;
+    }
+    .badges { display: flex; gap: .5rem; justify-content: center; flex-wrap: wrap; margin-bottom: 2.5rem; }
+    .badge {
+      padding: .25rem .75rem; border-radius: 999px; font-size: .72rem; font-weight: 600;
+    }
+    .badge-cyan   { background: rgba(0,212,255,.12);  color: var(--cyan);   border: 1px solid rgba(0,212,255,.3); }
+    .badge-amber  { background: rgba(255,179,71,.12); color: var(--amber);  border: 1px solid rgba(255,179,71,.3); }
+    .badge-green  { background: rgba(57,255,20,.10);  color: var(--green);  border: 1px solid rgba(57,255,20,.25); }
+    .badge-purple { background: rgba(191,95,255,.12); color: var(--purple); border: 1px solid rgba(191,95,255,.3); }
+
+    /* ── CTA buttons ── */
+    .cta-group { display: flex; gap: 1rem; justify-content: center; flex-wrap: wrap; }
+    .btn {
+      display: inline-flex; align-items: center; gap: .5rem;
+      padding: .75rem 1.75rem; border-radius: var(--radius);
+      font-size: .9rem; font-weight: 600; text-decoration: none;
+      transition: all .22s cubic-bezier(.4,0,.2,1);
+      cursor: pointer; border: none;
+    }
+    .btn-primary {
+      background: linear-gradient(135deg, rgba(0,212,255,.25), rgba(0,150,200,.25));
+      color: var(--cyan); border: 1px solid var(--cyan);
+      box-shadow: 0 0 12px rgba(0,212,255,.2);
+    }
+    .btn-primary:hover {
+      background: linear-gradient(135deg, rgba(0,212,255,.4), rgba(0,150,200,.4));
+      box-shadow: 0 0 24px rgba(0,212,255,.45);
+      transform: translateY(-2px);
+    }
+    .btn-secondary {
+      background: rgba(255,255,255,.05); color: var(--text);
+      border: 1px solid var(--border);
+    }
+    .btn-secondary:hover { border-color: rgba(0,212,255,.3); transform: translateY(-2px); }
+
+    /* ── Status bar ── */
+    #status-bar {
+      display: flex; align-items: center; justify-content: center; gap: .5rem;
+      font-size: .78rem; color: var(--muted); margin-top: 1.5rem;
+    }
+    .dot {
+      width: 8px; height: 8px; border-radius: 50%;
+      animation: blink 2s ease-in-out infinite;
+    }
+    .dot-green  { background: var(--green);  box-shadow: 0 0 6px var(--green); }
+    .dot-amber  { background: var(--amber);  box-shadow: 0 0 6px var(--amber); }
+    @keyframes blink { 0%,100%{opacity:1} 50%{opacity:.35} }
+
+    /* ── Features grid ── */
+    .section { padding: 4rem 2rem; max-width: 1100px; margin: 0 auto; }
+    .section-title {
+      font-size: .75rem; font-weight: 700; text-transform: uppercase;
+      letter-spacing: .12em; color: var(--cyan);
+      text-shadow: 0 0 8px rgba(0,212,255,.4);
+      margin-bottom: 2rem; display: flex; align-items: center; gap: .5rem;
+    }
+    .section-title::after {
+      content: ''; flex: 1; height: 1px;
+      background: linear-gradient(90deg, rgba(0,212,255,.4), transparent);
+    }
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+      gap: 1rem;
+    }
+    .card {
+      background: rgba(22,27,34,.72);
+      backdrop-filter: blur(18px);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 1.4rem;
+      transition: all .22s cubic-bezier(.4,0,.2,1);
+    }
+    .card:hover {
+      border-color: rgba(0,212,255,.3);
+      box-shadow: 0 8px 32px rgba(0,212,255,.1);
+      transform: translateY(-3px);
+    }
+    .card-icon { font-size: 1.8rem; margin-bottom: .75rem; display: block; }
+    .card h3 { font-size: .95rem; font-weight: 700; margin-bottom: .4rem; color: var(--text); }
+    .card p  { font-size: .82rem; color: var(--muted); line-height: 1.6; }
+
+    /* ── Pipeline ── */
+    .pipeline {
+      display: flex; align-items: center; gap: .5rem;
+      flex-wrap: wrap; justify-content: center;
+      padding: 2rem; margin: 2rem 0;
+      background: var(--surface); border-radius: var(--radius);
+      border: 1px solid var(--border);
+    }
+    .pipe-step {
+      background: var(--elevated); border: 1px solid var(--border);
+      border-radius: 8px; padding: .5rem 1rem;
+      font-size: .78rem; font-weight: 600; color: var(--text);
+      white-space: nowrap;
+    }
+    .pipe-arrow { color: var(--cyan); font-size: 1.1rem; }
+
+    /* ── API section ── */
+    .code-block {
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: var(--radius); padding: 1.2rem 1.4rem;
+      font-family: "SF Mono", "Fira Code", monospace;
+      font-size: .8rem; color: #a8d8a8; overflow-x: auto;
+      margin: 1rem 0;
+    }
+    .code-block .comment { color: var(--muted); }
+    .code-block .key     { color: var(--cyan); }
+    .code-block .val     { color: var(--amber); }
+
+    /* ── Footer ── */
+    footer {
+      border-top: 1px solid var(--border);
+      padding: 2rem;
+      text-align: center;
+      font-size: .78rem;
+      color: var(--muted);
+    }
+    footer a { color: var(--cyan); text-decoration: none; }
+    footer a:hover { text-decoration: underline; }
+  </style>
+</head>
+<body>
+
+<!-- Nav -->
+<nav>
+  <span class="nav-brand">🌉 BRIDGE GAD</span>
+  <div class="nav-links">
+    <a href="#features">Features</a>
+    <a href="#api">API</a>
+    <a href="#deploy">Deploy</a>
+    <a href="/app" target="_blank" rel="noopener">Open App ↗</a>
+  </div>
+</nav>
+
+<!-- Hero -->
+<section class="hero" role="banner" aria-label="Bridge GAD Generator">
+  <span class="hero-icon" aria-hidden="true">🌉</span>
+  <h1>Bridge GAD Generator</h1>
+  <p class="hero-sub">
+    Professional Bridge General Arrangement Drawings from Excel.
+    DXF · PDF · 3D · Bill Generation · AI Optimizer.
+  </p>
+  <div class="badges" aria-label="Feature highlights">
+    <span class="badge badge-cyan">DXF Drawing</span>
+    <span class="badge badge-amber">Bill Generation</span>
+    <span class="badge badge-green">10+ Exports</span>
+    <span class="badge badge-purple">AI Optimizer</span>
+  </div>
+  <div class="cta-group">
+    <a href="/app" class="btn btn-primary" target="_blank" rel="noopener">
+      🚀 Open App
+    </a>
+    <a href="https://github.com/CRAJKUMARSINGH/Bridge_GAD_Yogendra_Borse"
+       class="btn btn-secondary" target="_blank" rel="noopener">
+      ⭐ GitHub
+    </a>
+  </div>
+  <div id="status-bar" aria-live="polite">
+    <span class="dot dot-amber" id="api-dot"></span>
+    <span id="api-status">Checking API…</span>
+  </div>
+</section>
+
+<!-- Pipeline -->
+<div class="section">
+  <p class="section-title">⚡ Workflow Pipeline</p>
+  <div class="pipeline" role="list" aria-label="Processing pipeline">
+    <span class="pipe-step" role="listitem">📂 Upload Excel</span>
+    <span class="pipe-arrow" aria-hidden="true">→</span>
+    <span class="pipe-step" role="listitem">🔍 Parse</span>
+    <span class="pipe-arrow" aria-hidden="true">→</span>
+    <span class="pipe-step" role="listitem">⚙️ Calculate</span>
+    <span class="pipe-arrow" aria-hidden="true">→</span>
+    <span class="pipe-step" role="listitem">✏️ Edit</span>
+    <span class="pipe-arrow" aria-hidden="true">→</span>
+    <span class="pipe-step" role="listitem">🖨️ Preview</span>
+    <span class="pipe-arrow" aria-hidden="true">→</span>
+    <span class="pipe-step" role="listitem">📥 Export</span>
+  </div>
+</div>
+
+<!-- Features -->
+<div class="section" id="features">
+  <p class="section-title">🎯 Features</p>
+  <div class="grid">
+    <div class="card">
+      <span class="card-icon" aria-hidden="true">📐</span>
+      <h3>DXF Drawing Generation</h3>
+      <p>AutoCAD R2006/R2010 format. Full elevation, plan, cross-section, and side views with title block.</p>
+    </div>
+    <div class="card">
+      <span class="card-icon" aria-hidden="true">💰</span>
+      <h3>Bill Generation</h3>
+      <p>Statutory-compliant contractor bills with hierarchical items, tender premium, and draft management.</p>
+    </div>
+    <div class="card">
+      <span class="card-icon" aria-hidden="true">🎨</span>
+      <h3>3D Visualization</h3>
+      <p>Interactive Plotly 3D bridge model with deck, piers, abutments, and dimensional analytics.</p>
+    </div>
+    <div class="card">
+      <span class="card-icon" aria-hidden="true">✅</span>
+      <h3>Quality Checker</h3>
+      <p>IRC/IS standards compliance scoring. Detects critical issues and generates recommendations.</p>
+    </div>
+    <div class="card">
+      <span class="card-icon" aria-hidden="true">🤖</span>
+      <h3>AI Optimizer</h3>
+      <p>Cost estimation, material quantities, and performance predictions — no external API required.</p>
+    </div>
+    <div class="card">
+      <span class="card-icon" aria-hidden="true">📤</span>
+      <h3>10+ Export Formats</h3>
+      <p>DXF, PDF, PNG, SVG, Excel, CSV, HTML, ZIP. Batch export with timestamp and custom prefix.</p>
+    </div>
+  </div>
+</div>
+
+<!-- API -->
+<div class="section" id="api">
+  <p class="section-title">🔌 REST API</p>
+  <p style="color:var(--muted);font-size:.88rem;margin-bottom:1rem;">
+    POST an Excel file, receive a DXF drawing. Proxied via Netlify Functions → FastAPI backend.
+  </p>
+  <div class="code-block" role="region" aria-label="API example">
+    <span class="comment"># Generate a bridge drawing via API</span><br>
+    curl -X POST /api/predict \<br>
+    &nbsp;&nbsp;-F <span class="val">"excel_file=@bridge_params.xlsx"</span> \<br>
+    &nbsp;&nbsp;-G -d <span class="val">"format=dxf"</span> \<br>
+    &nbsp;&nbsp;--output bridge_drawing.dxf<br><br>
+    <span class="comment"># Health check</span><br>
+    curl /api/health
+  </div>
+  <div class="grid" style="margin-top:1rem;">
+    <div class="card">
+      <span class="card-icon" aria-hidden="true">⚡</span>
+      <h3>POST /api/predict</h3>
+      <p>Synchronous generation. Upload Excel, download DXF/PDF/PNG immediately.</p>
+    </div>
+    <div class="card">
+      <span class="card-icon" aria-hidden="true">📡</span>
+      <h3>POST /api/jobs</h3>
+      <p>Async queue. Returns job_id. Poll status or stream via SSE.</p>
+    </div>
+    <div class="card">
+      <span class="card-icon" aria-hidden="true">💚</span>
+      <h3>GET /api/health</h3>
+      <p>Netlify function + FastAPI backend health. Returns JSON status.</p>
+    </div>
+  </div>
+</div>
+
+<!-- Deploy -->
+<div class="section" id="deploy">
+  <p class="section-title">🚀 Deployment</p>
+  <div class="grid">
+    <div class="card">
+      <span class="card-icon" aria-hidden="true">🌐</span>
+      <h3>Netlify (this site)</h3>
+      <p>Static landing page + serverless API proxy. Auto-deploys on push to main.</p>
+    </div>
+    <div class="card">
+      <span class="card-icon" aria-hidden="true">☁️</span>
+      <h3>Streamlit Cloud</h3>
+      <p>Full 10-tab application. Set <code>STREAMLIT_APP_URL</code> in Netlify env vars.</p>
+    </div>
+    <div class="card">
+      <span class="card-icon" aria-hidden="true">🐳</span>
+      <h3>Docker</h3>
+      <p>Multi-stage image. Compose stack includes UI + API + ARQ worker + Redis.</p>
+    </div>
+  </div>
+</div>
+
+<!-- Footer -->
+<footer>
+  <p>
+    🌉 Bridge GAD Generator &nbsp;·&nbsp;
+    <a href="https://github.com/CRAJKUMARSINGH/Bridge_GAD_Yogendra_Borse" target="_blank" rel="noopener">GitHub</a>
+    &nbsp;·&nbsp;
+    <a href="/app" target="_blank" rel="noopener">Open App</a>
+    &nbsp;·&nbsp;
+    RKS LEGAL Techno Legal Consultants, Udaipur
+  </p>
+</footer>
+
+<script>
+  // Live API health check — updates status dot
+  async function checkHealth() {
+    const dot    = document.getElementById('api-dot');
+    const status = document.getElementById('api-status');
+    try {
+      const res  = await fetch('/api/health', { signal: AbortSignal.timeout(6000) });
+      const data = await res.json();
+      if (data.netlify_function === 'ok') {
+        dot.className   = 'dot dot-green';
+        const be = data.fastapi_backend === 'ok' ? '· Backend online' : '· Backend offline';
+        status.textContent = 'API online ' + be;
+      } else {
+        throw new Error('function not ok');
+      }
+    } catch {
+      dot.className      = 'dot dot-amber';
+      status.textContent = 'API status unknown (backend may be sleeping)';
+    }
+  }
+  checkHealth();
+</script>
+</body>
+</html>
