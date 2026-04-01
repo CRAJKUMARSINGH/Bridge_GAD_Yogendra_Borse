@@ -155,52 +155,45 @@ def main():
         
         if uploaded_file:
             st.success(f"✅ File uploaded: {uploaded_file.name}")
-            
+
             # Preview
             with st.expander("📊 Preview Data"):
                 df = pd.read_excel(uploaded_file, header=None)
                 st.dataframe(df.head(20), use_container_width=True)
-            
+                uploaded_file.seek(0)
+
             # Generate button
             if st.button("🚀 Generate Bridge Design", type="primary"):
                 with st.spinner("Generating..."):
                     try:
-                        # Save temp file
-                        temp_dir = Path("temp")
-                        temp_dir.mkdir(exist_ok=True)
-                        temp_file = temp_dir / uploaded_file.name
-                        
-                        with open(temp_file, "wb") as f:
-                            f.write(uploaded_file.getbuffer())
-                        
-                        # Generate
-                        gen = BridgeGADGenerator()
-                        output_file = temp_dir / "bridge.dxf"
-                        
-                        if gen.generate_complete_drawing(temp_file, output_file):
-                            st.success("✅ Generated successfully!")
-                            
-                            # Download
-                            with open(output_file, "rb") as f:
+                        # FIX BOLT-002: use tempfile.TemporaryDirectory instead of
+                        # hardcoded temp/ dir — auto-cleaned on exit, even on error
+                        with tempfile.TemporaryDirectory() as _tmp:
+                            tmp_path = Path(_tmp)
+                            safe_name = Path(uploaded_file.name).name
+                            temp_file = tmp_path / safe_name
+
+                            with open(temp_file, "wb") as f:
+                                f.write(uploaded_file.getbuffer())
+
+                            gen = BridgeGADGenerator()
+                            output_file = tmp_path / "bridge.dxf"
+
+                            if gen.generate_complete_drawing(temp_file, output_file):
+                                st.success("✅ Generated successfully!")
+                                with open(output_file, "rb") as f:
+                                    dxf_bytes = f.read()
                                 st.download_button(
                                     "📥 Download DXF",
-                                    data=f.read(),
+                                    data=dxf_bytes,
                                     file_name=f"{project_name}.dxf",
-                                    mime="application/dxf"
+                                    mime="application/dxf",
                                 )
-                            
-                            st.session_state.result = {
-                                'success': True,
-                                'filename': output_file.name
-                            }
-                        else:
-                            st.error("❌ Generation failed")
-                        
-                        # Cleanup
-                        temp_file.unlink()
-                        if output_file.exists():
-                            output_file.unlink()
-                        
+                                st.session_state.result = {"success": True, "filename": output_file.name}
+                            else:
+                                st.error("❌ Generation failed")
+                        # TemporaryDirectory auto-deleted here — no manual unlink needed
+
                     except Exception as e:
                         st.error(f"❌ Error: {str(e)}")
 

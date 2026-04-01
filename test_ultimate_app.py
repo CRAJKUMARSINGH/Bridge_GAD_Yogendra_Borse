@@ -36,7 +36,8 @@ def test_drawing_generation():
     
     # Import required modules
     try:
-        from bridge_gad.bridge_generator import BridgeGADGenerator, generate_bridge_gad
+        from bridge_gad.bridge_generator import BridgeGADGenerator
+        # FIX REPLIT-005: generate_bridge_gad does not exist; use generate_complete_drawing
         from bridge_gad.enhanced_io_utils import SmartInputProcessor
         print("✅ Modules imported successfully\n")
     except ImportError as e:
@@ -97,8 +98,9 @@ def test_drawing_generation():
             print(f"  → Output: {output_file}")
             print(f"  → Generating DXF drawing...")
             
-            # Use the generate_bridge_gad function
-            result = generate_bridge_gad(test_file, output_file)
+            # FIX REPLIT-005: use generate_complete_drawing instead of non-existent generate_bridge_gad
+            gen = BridgeGADGenerator()
+            result = gen.generate_complete_drawing(test_file, output_file)
             
             # End timer
             elapsed = time.time() - start_time
@@ -157,7 +159,7 @@ def test_drawing_generation():
     print_summary(results)
     
     success_count = sum(1 for r in results if r['status'] == 'SUCCESS')
-    return success_count == len(results), results
+    assert success_count == len(results), f"{len(results) - success_count} test(s) failed"
 
 
 def generate_summary_report(results, test_timestamp):
@@ -316,7 +318,7 @@ def test_app_structure():
     else:
         print("❌ Some modules are missing!\n")
     
-    return all_exist
+    assert all_exist, "Required modules are missing"
 
 
 if __name__ == "__main__":

@@ -1,0 +1,77 @@
+version: "3.9"
+
+services:
+  # ── Streamlit UI ────────────────────────────────────────────────────────────
+  ui:
+    build: .
+    image: bridge-gad:latest
+    container_name: bridge_gad_ui
+    ports:
+      - "8501:8501"
+    environment:
+      - BRIDGE_GAD_TELEMETRY=0
+      - CONTACT_EMAIL=${CONTACT_EMAIL:-contact@example.com}
+      - CONTACT_PHONE=${CONTACT_PHONE:-+91XXXXXXXXXX}
+    volumes:
+      - ./inputs:/app/inputs:ro
+      - outputs:/app/outputs
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python", "-c",
+             "import urllib.request; urllib.request.urlopen('http://localhost:8501/_stcore/health')"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 20s
+
+  # ── FastAPI REST ─────────────────────────────────────────────────────────────
+  api:
+    build: .
+    image: bridge-gad:latest
+    container_name: bridge_gad_api
+    command: uvicorn bridge_gad.api:app --host 0.0.0.0 --port 8000
+    ports:
+      - "8000:8000"
+    environment:
+      - BRIDGE_GAD_TELEMETRY=0
+    volumes:
+      - ./inputs:/app/inputs:ro
+      - outputs:/app/outputs
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python", "-c",
+             "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 15s
+
+  # ── ARQ Worker (async job queue) ─────────────────────────────────────────────
+  worker:
+    build: .
+    image: bridge-gad:latest
+    container_name: bridge_gad_worker
+    command: python -m bridge_gad.worker
+    environment:
+      - BRIDGE_GAD_TELEMETRY=0
+      - REDIS_URL=${REDIS_URL:-redis://redis:6379}
+    volumes:
+      - outputs:/app/outputs
+    depends_on:
+      - redis
+    restart: unless-stopped
+
+  # ── Redis (ARQ broker) ───────────────────────────────────────────────────────
+  redis:
+    image: redis:7-alpine
+    container_name: bridge_gad_redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    restart: unless-stopped
+    command: redis-server --appendonly yes
+
+volumes:
+  outputs:
+  redis_data:

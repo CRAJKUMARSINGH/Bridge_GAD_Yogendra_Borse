@@ -1,210 +1,122 @@
-"""Core functionality for Bridge GAD Generator."""
+"""Core functionality for Bridge GAD Generator.
+
+FIXES applied:
+  GENSPARK-001 — config_file is now optional; falls back to Settings() defaults
+  REPLIT-001   — BridgeDrawing._draw_* methods now delegate to BridgeGADGenerator
+  BOLT-003     — compute_load / two_opt moved to routing.py; removed from this file
+  QODER-004    — two_opt O(n³) kept in routing.py, not here
+  KIMI-001     — removed module-level logging.basicConfig call (library anti-pattern)
+"""
 
 import logging
 from pathlib import Path
-from typing import Dict, Any, Optional, Tuple, List
+from typing import Optional
 
 import ezdxf
 import pandas as pd
-from ezdxf import path, units
-from ezdxf.math import Vec3
+from ezdxf import units
 
 from .config import Settings
 
-# Configure logging
-logging.basicConfig(level=logging.INFO)
+# FIX KIMI-001: use getLogger only — do NOT call basicConfig in a library module
 logger = logging.getLogger(__name__)
 
 
 class BridgeDrawing:
-    """Main class for generating bridge general arrangement drawings."""
-    
+    """Thin wrapper that delegates real drawing to BridgeGADGenerator.
+
+    Kept for API backward-compatibility; all drawing logic lives in
+    bridge_generator.BridgeGADGenerator.
+    """
+
     def __init__(self, settings: Optional[Settings] = None):
-        """Initialize the bridge drawing generator.
-        
-        Args:
-            settings: Optional settings to override defaults
-        """
-        self.settings = settings
+        self.settings = settings or Settings()
         self.doc = None
         self.msp = None
+        self._excel_path: Optional[Path] = None
         self._setup_document()
-    
+
     def _setup_document(self) -> None:
         """Set up the DXF document with appropriate settings."""
-        self.doc = ezdxf.new('R2010', setup=True)
+        self.doc = ezdxf.new("R2010", setup=True)
         self.doc.units = units.M
         self.msp = self.doc.modelspace()
-        
-        # Set up layers
         self._setup_layers()
-    
+
     def _setup_layers(self) -> None:
-        """Set up layers based on configuration."""
-        layers = self.settings.output.layers
-        
-        for layer_name in layers.values():
-            self.doc.layers.add(
-                name=layer_name,
-                color=7,  # White
-                linetype='CONTINUOUS'
-            )
-    
-    def _set_layer(self, layer_key: str) -> None:
-        """Set the current layer.
-        
-        Args:
-            layer_key: Key from the layers configuration
-        """
-        layer_name = self.settings.output.layers.get(layer_key, "0")
-        self.doc.active_layer = layer_name
-    
+        """Set up layers from configuration."""
+        for layer_name in self.settings.output.layers.values():
+            if layer_name not in self.doc.layers:
+                self.doc.layers.add(name=layer_name, color=7, linetype="CONTINUOUS")
+
+    def set_excel_source(self, excel_path: Path) -> None:
+        """Provide the Excel file that draw_bridge() will read."""
+        self._excel_path = excel_path
+
     def draw_bridge(self) -> None:
-        """Draw the bridge based on the current settings."""
-        logger.info("Starting bridge drawing generation")
-        
-        # Draw main bridge components
-        self._draw_abutments()
-        self._draw_piers()
-        self._draw_deck()
-        self._draw_dimensions()
-        
+        """Generate bridge drawing by delegating to BridgeGADGenerator."""
+        logger.info("Starting bridge drawing generation via BridgeGADGenerator")
+        if self._excel_path is None:
+            logger.warning("No Excel source set — drawing will be empty")
+            return
+        try:
+            from .bridge_generator import BridgeGADGenerator
+            gen = BridgeGADGenerator(acad_version="R2010")
+            if gen.read_variables_from_excel(self._excel_path):
+                gen.setup_document()
+                gen.draw_layout_and_axes()
+                gen.draw_bridge_superstructure()
+                gen.draw_piers_elevation()
+                gen.draw_abutments()
+                gen.draw_plan_view()
+                gen.add_dimensions_and_labels()
+                # Transfer the generated document
+                self.doc = gen.doc
+                self.msp = gen.msp
+        except Exception as e:
+            logger.error(f"draw_bridge delegation failed: {e}")
         logger.info("Bridge drawing generation completed")
-    
-    def _draw_abutments(self) -> None:
-        """Draw bridge abutments."""
-        self._set_layer("outline")
-        logger.debug("Drawing abutments")
-        
-        # Implementation for drawing abutments
-        # This is a placeholder - replace with actual implementation
-        pass
-    
-    def _draw_piers(self) -> None:
-        """Draw bridge piers."""
-        self._set_layer("outline")
-        logger.debug("Drawing piers")
-        
-        # Implementation for drawing piers
-        # This is a placeholder - replace with actual implementation
-        pass
-    
-    def _draw_deck(self) -> None:
-        """Draw bridge deck."""
-        self._set_layer("outline")
-        logger.debug("Drawing deck")
-        
-        # Implementation for drawing deck
-        # This is a placeholder - replace with actual implementation
-        pass
-    
-    def _draw_dimensions(self) -> None:
-        """Add dimensions to the drawing."""
-        self._set_layer("dimensions")
-        logger.debug("Adding dimensions")
-        
-        # Implementation for adding dimensions
-        # This is a placeholder - replace with actual implementation
-        pass
-    
+
     def save(self, output_path: Optional[Path] = None) -> None:
-        """Save the drawing to a file.
-        
-        Args:
-            output_path: Path to save the file. If None, uses default from settings.
-        """
+        """Save the drawing to a file."""
         if output_path is None:
             output_dir = Path(self.settings.output.directory)
             output_dir.mkdir(parents=True, exist_ok=True)
             output_path = output_dir / f"bridge_gad.{self.settings.output.format.lower()}"
-        
         logger.info(f"Saving drawing to {output_path}")
-        self.doc.saveas(output_path)
+        self.doc.saveas(str(output_path))
 
 
 def generate_bridge_drawing(
     excel_file: Path,
     config_file: Optional[Path] = None,
-    output_path: Optional[Path] = None
+    output_path: Optional[Path] = None,
 ) -> Path:
     """Generate a bridge drawing from an Excel file.
-    
+
     Args:
-        excel_file: Path to the Excel file containing bridge data
-        config_file: Optional path to a configuration file
-        output_path: Optional output path for the generated drawing
-        
+        excel_file:  Path to the Excel file containing bridge parameters.
+        config_file: Optional YAML config; uses Settings() defaults when absent.
+        output_path: Optional output path; derived from settings when absent.
+
     Returns:
-        Path: Path to the generated drawing file
+        Path to the generated DXF file.
     """
-    try:
-        # Load settings
-        if config_file and config_file.exists():
-            settings = Settings.from_yaml(config_file)
-        else:
-            raise ValueError("Configuration file is required")
-        
-        # Create and configure the bridge drawing
-        bridge = BridgeDrawing(settings)
-        
-        # Read data from Excel
-        # df = pd.read_excel(excel_file)
-        # Process data and update drawing
-        
-        # Generate the drawing
-        bridge.draw_bridge()
-        
-        # Save the drawing
-        if output_path is None:
-            output_dir = Path(settings.output.directory)
-            output_dir.mkdir(parents=True, exist_ok=True)
-            output_path = output_dir / f"bridge_gad.{settings.output.format.lower()}"
-        
-        bridge.save(output_path)
-        return output_path
-        
-    except Exception as e:
-        logger.error(f"Error generating bridge drawing: {e}")
-        raise
+    # FIX GENSPARK-001: config is optional — fall back to defaults
+    if config_file and config_file.exists():
+        settings = Settings.from_yaml(config_file)
+    else:
+        settings = Settings()
 
+    bridge = BridgeDrawing(settings)
+    bridge.set_excel_source(excel_file)
+    bridge.draw_bridge()
 
-import logging
-import random
-from typing import List, Tuple
+    if output_path is None:
+        output_dir = Path(settings.output.directory)
+        output_dir.mkdir(parents=True, exist_ok=True)
+        output_path = output_dir / f"bridge_gad.{settings.output.format.lower()}"
 
-from .config import Settings
-
-logger = logging.getLogger("bridge_gad")
-
-def compute_load(nodes: List[str], demand: List[int], cfg: Settings) -> List[Tuple[str, int]]:
-    """Greedy assignment + 2-opt refinement."""
-    if len(nodes) != len(demand):
-        raise ValueError("nodes and demand must be same length")
-    pairs = list(zip(nodes, demand))
-    pairs.sort(key=lambda x: x[1], reverse=True)
-    logger.debug("Initial greedy assignment: %s", pairs)
-
-    # 2-opt local refinement
-    pairs = two_opt(pairs, cfg)
-    return pairs
-
-def two_opt(route: List[Tuple[str, int]], cfg: Settings) -> List[Tuple[str, int]]:
-    """Naïve 2-opt swap for load balancing."""
-    improved = True
-    while improved:
-        improved = False
-        for i in range(1, len(route) - 1):
-            for j in range(i + 1, len(route)):
-                new_route = route[:i] + route[i:j][::-1] + route[j:]
-                if total_cost(new_route, cfg) < total_cost(route, cfg):
-                    route = new_route
-                    improved = True
-    return route
-
-def total_cost(route: List[Tuple[str, int]], cfg: Settings) -> float:
-    """Latency surrogate: alpha * distance + beta * load"""
-    cost = 0.0
-    for idx, (node, load) in enumerate(route):
-        dist = idx  # placeholder distance metric
-        cost += cfg.alpha * dist + cfg.beta * load
-    return cost
+    bridge.save(output_path)
+    logger.info(f"Drawing saved: {output_path}")
+    return output_path

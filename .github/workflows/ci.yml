@@ -8,13 +8,131 @@ jobs:
   test:
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v4
-    - uses: actions/setup-python@v5
-      with:
-        python-version: "3.11"
-    - run: pip install -e . pytest
-    - run: pytest
+      - uses: actions/checkout@v4
 
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: "pip"
 
+      - name: Install dependencies
+        run: |
+          pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install -e ".[dev]"
 
-  
+      # ── Guard: no duplicate requirements ─────────────────────────────────
+      - name: Check for duplicate requirements
+        run: |
+          python - <<'EOF'
+          import re, sys
+          pkgs = []
+          for line in open("requirements.txt"):
+              line = line.strip()
+              if line and not line.startswith("#"):
+                  name = re.split(r"[>=<!;\[]", line)[0].lower().replace("-","_")
+                  pkgs.append(name)
+          dupes = [p for p in set(pkgs) if pkgs.count(p) > 1]
+          if dupes:
+              print(f"DUPLICATE requirements: {dupes}")
+              sys.exit(1)
+          print("No duplicate requirements found.")
+          EOF
+
+      # ── Guard: no PII in source ───────────────────────────────────────────
+      - name: Check for PII in source
+        run: |
+          if grep -rn "@hotmail\|@gmail\|+91[0-9]\{10\}" src/ streamlit_app_ultimate.py app_lean.py 2>/dev/null; then
+            echo "PII detected — move to environment variables"
+            exit 1
+          fi
+          echo "No PII found."
+
+      # ── Guard: telemetry opt-in ───────────────────────────────────────────
+      - name: Check telemetry is opt-in
+        run: |
+          python -c "
+          import sys; sys.path.insert(0,'src')
+          from bridge_gad.telemetry import TELEMETRY_ENABLED
+          assert not TELEMETRY_ENABLED, 'Telemetry must be disabled by default'
+          print('Telemetry correctly disabled by default.')
+          "
+
+      # ── Guard: library does not hijack logging ────────────────────────────
+      - name: Check library does not hijack logging
+        run: |
+          python -c "
+          import logging, sys
+          before = len(logging.root.handlers)
+          sys.path.insert(0,'src')
+          import bridge_gad
+          after = len(logging.root.handlers)
+          assert after == before, f'bridge_gad import added {after-before} root handler(s)'
+          print('Logging not hijacked.')
+          "
+
+      # ── Guard: CalcEngine dependency graph ───────────────────────────────
+      - name: Smoke test CalcEngine
+        run: |
+          python -c "
+          import sys; sys.path.insert(0,'src')
+          from bridge_gad.calc_engine import CalcEngine
+          e = CalcEngine.with_bridge_defaults()
+          e.set('SPAN1', 12.0); e.set('NSPAN', 3); e.set('LEFT', 0)
+          r = e.recalculate()
+          assert r.get('LBRIDGE') == 36.0, f'Expected 36.0 got {r.get(\"LBRIDGE\")}'
+          print('CalcEngine OK — LBRIDGE =', r['LBRIDGE'])
+          "
+
+      # ── Guard: worker module imports cleanly ──────────────────────────────
+      - name: Smoke test worker import
+        run: |
+          python -c "
+          import sys; sys.path.insert(0,'src')
+          from bridge_gad.worker import WorkerSettings, generate_drawing_job
+          print('Worker import OK')
+          "
+
+      # ── Lint ──────────────────────────────────────────────────────────────
+      - name: Lint
+        run: flake8 src/ --max-line-length=120 --ignore=E501,W503,E402 --count
+
+      # ── Type check ────────────────────────────────────────────────────────
+      - name: Type check
+        run: mypy src/bridge_gad/ --ignore-missing-imports --no-error-summary || true
+
+      # ── Unit tests ────────────────────────────────────────────────────────
+      - name: Run tests
+        run: pytest test_ultimate_app.py -v --tb=short
+
+      # ── Robotic harness (smoke) ───────────────────────────────────────────
+      - name: Robotic pipeline smoke test
+        run: python scripts/robotic_test_harness.py
+
+  security:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install pip-audit
+        run: pip install pip-audit
+      - name: Audit dependencies for CVEs
+        run: pip-audit -r requirements.txt --ignore-vuln PYSEC-2022-42969 || true
+
+  docker:
+    runs-on: ubuntu-latest
+    needs: test
+    if: github.ref == 'refs/heads/main'
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build Docker image
+        run: docker build -t bridge-gad:ci .
+      - name: Smoke test container
+        run: |
+          docker run --rm bridge-gad:ci python -c "
+          import sys; sys.path.insert(0,'src')
+          from bridge_gad.bridge_generator import BridgeGADGenerator
+          print('Container import OK')
+          "

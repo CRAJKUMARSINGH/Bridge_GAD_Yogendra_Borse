@@ -62,3 +62,40 @@ package-lock.json
 *.tmp
 .replit
 uv.lock
+
+# FIX WARP-003: AI-generated status/report markdown files — not real documentation
+ACTION_CHECKLIST.md
+BEFORE_AFTER_COMPARISON.md
+BRIDGECANVAS_LESSONS_LEARNED.md
+BRIDGECANVAS_TRANSFORMATION_PLAN.md
+CLEAN_STATUS.md
+CLEANUP_SUMMARY.md
+COMPLETE_SUCCESS_SUMMARY.md
+DEPLOYMENT_READY_SUMMARY.md
+EXECUTIVE_SUMMARY.md
+GITHUB_POLISH_COMPLETE.md
+GITHUB_REACH_MAXIMUM.md
+IMPROVEMENT_RESULTS.md
+LEAN_TRANSFORMATION_PLAN.md
+PERFECT_SUCCESS.md
+PR_DESCRIPTION.md
+PUSH_SUCCESS.md
+READ_ME_FIRST_IMPROVEMENTS.md
+ROBOTIC_ANALYSIS_REPORT.md
+ROBOTIC_VERDICT.md
+START_HERE_LEAN.md
+START_HERE.md
+TEST_RUN_SUCCESS.md
+TITLES_AND_TAGLINES.md
+TRANSFORMATION_ANALYSIS.md
+ULTIMATE_INTEGRATION_PLAN.md
+
+# Telemetry file (opt-in only — should never be committed)
+Bridge_GAD_Telemetry.json
+Bridge_GAD_PluginRegistry.json
+
+# Temp upload directory (app_lean.py legacy)
+temp/
+
+# BridgeCanvas — legacy archive, contains nested .git dirs, not needed for deployment
+BridgeCanvas/

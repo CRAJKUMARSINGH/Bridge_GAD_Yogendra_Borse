@@ -1,54 +1,51 @@
-# Enhanced Bridge GAD Generator Requirements
-# Core dependencies for bridge drawing generation
+# Bridge GAD Generator — consolidated requirements
+# FIX CURSOR-001: removed click==7.1.2 (conflicts with typer>=0.9 which needs click>=8)
+# FIX CURSOR-001: removed duplicate uvicorn, typing-extensions, openpyxl, pandas, ezdxf entries
+# FIX QODER-001:  removed pygame (never imported anywhere in the codebase)
 
-# DXF file handling
+# --- Core drawing ---
 ezdxf>=1.4.0
 
-# PDF generation
-reportlab>=4.0.0
-
-# GUI framework
-pygame>=2.5.0
-
-# Data processing
+# --- Data processing ---
 pandas>=2.0.0
 numpy>=1.24.0
 scipy>=1.10.0
-
-# Excel file handling
 openpyxl>=3.1.0
 xlrd>=2.0.0
 
-# YAML configuration
+# --- Configuration ---
 PyYAML>=6.0
+pydantic>=2.0
 
-# Type hints support
+# --- CLI ---
+typer[all]>=0.9        # requires click>=8 — do NOT pin click below 8
+
+# --- Web API ---
+fastapi>=0.100.0
+uvicorn[standard]>=0.23.0
+python-multipart>=0.0.6
+
+# --- Async job queue ---
+arq>=0.25.0
+
+# --- UI ---
+streamlit>=1.28.0
+
+# --- Visualisation / export ---
+matplotlib>=3.7.0
+reportlab>=4.0.0
+pillow>=10.0.1          # >=10.0.1 patches CVE-2023-44271
+cairosvg>=2.7.0
+
+# --- Networking (plugin update check) ---
+requests>=2.28.0
+
+# --- Type hints ---
 typing-extensions>=4.5.0
 
-# Development dependencies (optional)
+# --- Dev / test (optional) ---
 pytest>=7.0.0
 pytest-cov>=4.0.0
 black>=23.0.0
 flake8>=6.0.0
 mypy>=1.0.0
-cairosvg
-ezdxf
-fastapi
-matplotlib
-openpyxl
-pandas
-pillow
-pydantic
-python-multipart
-pyyaml
-reportlab
-typer
-uvicorn
-typing-extensions
-click
-uvicorn
-click==7.1.2
-typing-extensions
-streamlit
-typing-inspect
-typing_extensions

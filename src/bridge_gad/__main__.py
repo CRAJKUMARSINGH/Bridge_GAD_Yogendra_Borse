@@ -8,9 +8,9 @@ import typer
 import pandas as pd
 
 from .config import Settings
-from .core import compute_load
+from .routing import compute_load
 from .drawing import SlabBridgeGAD
-from .bridge_generator import generate_bridge_gad
+from .bridge_generator import BridgeGADGenerator
 
 app = typer.Typer()
 

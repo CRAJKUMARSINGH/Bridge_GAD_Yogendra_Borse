@@ -1,11 +1,25 @@
+"""Plugin registry — discovers and caches installed plugin metadata.
+
+FIXES applied:
+  KIMI-005 — changed absolute import to relative import
+  WARP-004 — requests import and HTTP call moved inside function (lazy);
+             no longer blocks startup on import
+"""
+
 import json
 from pathlib import Path
-from bridge_gad.plugins import load_plugins
+
+# FIX KIMI-005: use relative import so the package works when installed
+from .plugins import load_plugins
 
 REGISTRY_FILE = Path.home() / "Bridge_GAD_PluginRegistry.json"
+_PLUGIN_UPDATE_URL = (
+    "https://api.github.com/repos/CRAJKUMARSINGH/Bridge_GAD_Yogendra_Borse/releases/latest"
+)
 
-def build_registry():
-    """Collect metadata of all installed plugins."""
+
+def build_registry() -> dict:
+    """Collect metadata of all installed plugins and persist to disk."""
     plugins = load_plugins()
     registry = {
         p.name: {
@@ -19,22 +33,34 @@ def build_registry():
         json.dump(registry, f, indent=2)
     return registry
 
-def get_registry():
+
+def get_registry() -> dict:
+    """Return the cached plugin registry, or an empty dict if not built yet."""
     if REGISTRY_FILE.exists():
-        with open(REGISTRY_FILE, "r", encoding="utf-8") as f:
-            return json.load(f)
+        try:
+            with open(REGISTRY_FILE, "r", encoding="utf-8") as f:
+                return json.load(f)
+        except Exception:
+            pass
     return {}
 
-import requests
 
-PLUGIN_UPDATE_URL = "https://api.github.com/repos/CRAJKUMARSINGH/Bridge_GAD_Yogendra_Borse/releases/latest"
+def check_for_plugin_updates() -> str:
+    """Check GitHub for the latest plugin pack release.
 
-def check_for_plugin_updates():
+    FIX WARP-004: `import requests` is deferred to inside this function so
+    that importing the module never triggers a network call.  Call this
+    function explicitly only when the user requests an update check.
+    """
     try:
-        r = requests.get(PLUGIN_UPDATE_URL, timeout=5)
+        import requests  # lazy import — no startup penalty
+        r = requests.get(_PLUGIN_UPDATE_URL, timeout=5)
         if r.status_code == 200:
-            latest = r.json().get("tag_name", "v1.0.0")
-            return f"Latest plugin pack version: {latest}"
+            data = r.json()
+            # Basic schema validation before trusting the response
+            latest = str(data.get("tag_name", "")).strip()
+            if latest and latest.startswith("v"):
+                return f"Latest plugin pack version: {latest}"
     except Exception:
         pass
     return "Unable to check for updates."

@@ -205,8 +205,8 @@ class SmartInputProcessor:
         # Assume columns are: Value, Variable, Description
         for _, row in df.iterrows():
             if len(row) >= 2:
-                value = row[0]
-                variable = str(row[1]).upper().strip()
+                value = row.iloc[0]
+                variable = str(row.iloc[1]).upper().strip()
                 
                 if pd.notna(value) and variable:
                     try:
