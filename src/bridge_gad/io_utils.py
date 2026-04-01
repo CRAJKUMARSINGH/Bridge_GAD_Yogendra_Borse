@@ -5,8 +5,12 @@ from typing import Any
 import yaml
 
 def read_input_excel(path: str) -> pd.DataFrame:
-    """Read bridge input parameters from Excel."""
-    return pd.read_excel(path)
+    """Read bridge input parameters from Excel.
+
+    FIX GENSPARK-003: use header=None to match bridge_generator.py convention
+    (all rows are data; columns are Value / Variable / Description).
+    """
+    return pd.read_excel(path, header=None)
 
 def save_results_to_excel(results: Dict[str, float], output_path: str) -> None:
     """Save computed results to Excel."""

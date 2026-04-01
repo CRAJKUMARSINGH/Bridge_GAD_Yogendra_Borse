@@ -238,24 +238,24 @@ class Bridge3DVisualizer:
             return {}
     
     def get_summary_stats(self) -> Dict:
-        """Get 3D visualization summary"""
+        """Get 3D visualization summary."""
         try:
             mesh = self.generate_3d_mesh()
-            if mesh.get('vertices') is None:
+            # FIX CURSOR-004: guard against None AND empty numpy arrays
+            vertices = mesh.get("vertices")
+            if vertices is None or not hasattr(vertices, "__len__") or len(vertices) == 0:
                 return {}
-            
-            vertices = mesh['vertices']
             return {
-                'total_vertices': len(vertices),
-                'x_range': [float(vertices[:, 0].min()), float(vertices[:, 0].max())],
-                'y_range': [float(vertices[:, 1].min()), float(vertices[:, 1].max())],
-                'z_range': [float(vertices[:, 2].min()), float(vertices[:, 2].max())],
-                'volume_approximate': float(
-                    self.variables.get('SPAN1', 12) * 
-                    self.variables.get('CCBR', 11.1) * 
-                    self.variables.get('SLBTHE', 0.75) * 
-                    self.variables.get('NSPAN', 3)
-                )
+                "total_vertices": len(vertices),
+                "x_range": [float(vertices[:, 0].min()), float(vertices[:, 0].max())],
+                "y_range": [float(vertices[:, 1].min()), float(vertices[:, 1].max())],
+                "z_range": [float(vertices[:, 2].min()), float(vertices[:, 2].max())],
+                "volume_approximate": float(
+                    self.variables.get("SPAN1", 12)
+                    * self.variables.get("CCBR", 11.1)
+                    * self.variables.get("SLBTHE", 0.75)
+                    * self.variables.get("NSPAN", 3)
+                ),
             }
         except Exception as e:
             logger.error(f"Stats error: {e}")

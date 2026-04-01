@@ -103,10 +103,11 @@ class DetailedSheetGenerator:
             'style': 'STANDARD'
         }).set_placement((self.A4_WIDTH - 80, title_y_end - 10))
         
-        # Contact info footer
+        # Contact info footer — FIX KERO-004: PII defaults from env vars
+        import os as _os
         address = str(variables.get('ADDRESS', '303 Vallabh Apartment, Udaipur'))
-        email = str(variables.get('EMAIL', 'crajkumarsingh@hotmail.com'))
-        phone = str(variables.get('MOBILE', '+919414163019'))
+        email = str(variables.get('EMAIL', _os.environ.get('CONTACT_EMAIL', 'contact@example.com')))
+        phone = str(variables.get('MOBILE', _os.environ.get('CONTACT_PHONE', '+91XXXXXXXXXX')))
         
         footer_y = self.MARGIN + 3
         msp.add_text(f"📍 {address[:40]}", dxfattribs={'height': 1.5}).set_placement((self.MARGIN + 5, footer_y))

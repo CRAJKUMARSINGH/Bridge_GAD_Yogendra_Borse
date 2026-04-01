@@ -302,19 +302,27 @@ class BridgeDrawingGenerator:
         self.logger.debug(f"Drew {self.params.supports} supports")
     
     def _draw_beam_elevation(self):
-        """Draw beam bridge elevation (placeholder for future implementation)"""
-        # This would be implemented using superior beam bridge logic from other apps
-        self.logger.info("Beam bridge elevation - using slab as placeholder")
-        self._draw_slab_elevation()
-    
+        """Draw beam bridge elevation.
+
+        FIX CURSOR-005: raise NotImplementedError instead of silently
+        producing a slab drawing when the user selects BridgeType.BEAM.
+        """
+        raise NotImplementedError(
+            "Beam bridge elevation drawing is not yet implemented. "
+            "Please use BridgeType.SLAB or contribute a beam implementation."
+        )
+
     def _draw_beam_plan(self):
-        """Draw beam bridge plan (placeholder for future implementation)"""
-        self.logger.info("Beam bridge plan - using slab as placeholder")
-        self._draw_slab_plan()
-    
+        """Draw beam bridge plan — not yet implemented (FIX CURSOR-005)."""
+        raise NotImplementedError(
+            "Beam bridge plan drawing is not yet implemented."
+        )
+
     def _draw_beam_supports(self):
-        """Draw beam-specific supports (placeholder)"""
-        self._draw_supports()
+        """Draw beam-specific supports — not yet implemented (FIX CURSOR-005)."""
+        raise NotImplementedError(
+            "Beam bridge support drawing is not yet implemented."
+        )
     
     def _add_title_block(self):
         """Add professional title block"""

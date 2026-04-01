@@ -77,8 +77,10 @@ def setup_logging(level=logging.INFO):
     logger = logging.getLogger(__name__)
     logger.info(f"BridgeGAD v{__version__} initialized")
 
-# Initialize logging when package is imported
-setup_logging()
+# FIX KIMI-001: do NOT call basicConfig at library import time — that hijacks
+# the host application's logging configuration (Streamlit, uvicorn, etc.).
+# Call bridge_gad.setup_logging() explicitly in your own entry point if you
+# want BridgeGAD's default format.
 
 # Export main classes and functions
 __all__ = [

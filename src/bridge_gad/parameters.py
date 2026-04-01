@@ -8,7 +8,7 @@ with support for various input sources (Excel, JSON, manual input).
 
 import logging
 from dataclasses import dataclass, field
-from typing import Dict, List, Optional, Any, Union
+from typing import Dict, List, Optional, Any
 from .bridge_types import BridgeType, MaterialType, OutputFormat, validate_span_for_bridge_type
 
 logger = logging.getLogger(__name__)
@@ -28,7 +28,7 @@ class BridgeParameters:
     scale2: float = 50.0       # Section scale  
     datum: float = 100000.0    # Datum level in mm
     left: float = 0.0          # Left chainage
-    right: float = None        # Right chainage (calculated if None)
+    right: Optional[float] = None  # Right chainage (calculated if None) — FIX CURSOR-003
     
     # Structure configuration
     num_spans: int = 1         # Number of spans

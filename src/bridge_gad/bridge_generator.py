@@ -50,17 +50,14 @@ class BridgeGADGenerator:
         supported = {"R2006", "R2010", "2006", "2010"}
         version_upper = str(version).upper()
         
-        # Normalize version
-        if version_upper in {"2006", "2006"}:
+        # FIX CURSOR-002: removed duplicate set elements {"2006","2006"} / {"2010","2010"}
+        # Use the already-defined `supported` set for the final else-branch warning
+        if version_upper == "2006" or version_upper == "R2006":
             return "R2006"
-        elif version_upper in {"2010", "2010"}:
-            return "R2010"
-        elif version_upper == "R2006":
-            return "R2006"
-        elif version_upper == "R2010":
+        elif version_upper == "2010" or version_upper == "R2010":
             return "R2010"
         else:
-            logger.warning(f"Unknown AutoCAD version {version}, using R2010 (default)")
+            logger.warning(f"Unknown AutoCAD version '{version}' (supported: {supported}), using R2010")
             return "R2010"
         
     def setup_document(self):
@@ -89,9 +86,20 @@ class BridgeGADGenerator:
             dimstyle.dxf.dimtad = 0
             
     def read_variables_from_excel(self, file_path: Path) -> bool:
-        """Read bridge parameters from Excel file."""
+        """Read bridge parameters from Excel file.
+
+        FIX GENSPARK-002: validates column count before assignment to avoid
+        ValueError on non-standard (< 3 column) Excel files.
+        """
         try:
             df = pd.read_excel(file_path, header=None)
+            # FIX GENSPARK-002: guard against files with fewer than 3 columns
+            if df.shape[1] < 3:
+                logger.error(
+                    f"Excel file must have at least 3 columns (Value, Variable, Description), "
+                    f"got {df.shape[1]}: {file_path}"
+                )
+                return False
             df.columns = ['Value', 'Variable', 'Description']
             
             # Create a dictionary for easy access
@@ -385,11 +393,15 @@ class BridgeGADGenerator:
             logger.error(f"Error drawing piers: {e}")
     
     def draw_pier_shaft(self, xc: float, piertw: float, batter: float, capb: float, futrl: float, futd: float):
-        """Draw individual pier shaft with batter."""
-        # Calculate pier dimensions
+        """Draw individual pier shaft with batter.
+
+        FIX GENSPARK-005: guard against ZeroDivisionError when batter == 0
+        (vertical pier — a valid engineering configuration).
+        """
         piertwsq = piertw / self.c
         pier_height = capb - futrl - futd
-        offset = pier_height / batter
+        # FIX GENSPARK-005: batter=0 means vertical pier — offset is 0
+        offset = (pier_height / batter) if batter != 0 else 0.0
         
         # Top points
         x1 = xc - piertwsq / 2
@@ -851,9 +863,11 @@ class BridgeGADGenerator:
             project_name = str(self.variables.get('PROJECT_NAME', 'Bridge General Arrangement Drawing'))
             company_name = str(self.variables.get('COMPANY_NAME', 'RKS LEGAL'))
             company_full = str(self.variables.get('COMPANY_FULL', 'Techno Legal Consultants'))
-            address = str(self.variables.get('ADDRESS', '303 Vallabh Apartment, Navratna Complex, Bhuwana, Udaipur -313001'))
-            email = str(self.variables.get('EMAIL', 'crajkumarsingh@hotmail.com'))
-            mobile = str(self.variables.get('MOBILE', '+919414163019'))
+            address = str(self.variables.get('ADDRESS', '303 Vallabh Apartment, Udaipur'))
+            # FIX KERO-004: PII defaults replaced with env-var lookups
+            import os as _os
+            email = str(self.variables.get('EMAIL', _os.environ.get('CONTACT_EMAIL', 'contact@example.com')))
+            mobile = str(self.variables.get('MOBILE', _os.environ.get('CONTACT_PHONE', '+91XXXXXXXXXX')))
             
             # Position title block on right side of drawing
             title_block_x = self.hpos(right) + 50 * self.scale1

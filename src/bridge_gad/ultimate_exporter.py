@@ -353,11 +353,13 @@ class UltimateExporter:
                verticalalignment='top', bbox=dict(boxstyle='round', facecolor='wheat', alpha=0.5))
     
     def _add_branding(self, ax):
-        """Add RKS LEGAL branding"""
+        """Add RKS LEGAL branding — FIX KERO-004: phone from env var."""
+        import os as _os
+        _phone = _os.environ.get("CONTACT_PHONE", "+91XXXXXXXXXX")
         branding_text = (
             "RKS LEGAL - Techno Legal Consultants\n"
             "303 Vallabh Apartment, Navratna Complex, Bhuwana\n"
-            "Udaipur - 313001 | +919414163019"
+            f"Udaipur - 313001 | {_phone}"
         )
         ax.text(0.98, 0.02, branding_text,
                transform=ax.transAxes, fontsize=8,
@@ -445,7 +447,7 @@ class UltimateExporter:
                 <li>Use buttons above for additional controls</li>
             </ul>
             <strong>Generated:</strong> {datetime.now().strftime("%Y-%m-%d %H:%M:%S")}<br>
-            <strong>RKS LEGAL</strong> - Techno Legal Consultants | +919414163019
+            <strong>RKS LEGAL</strong> - Techno Legal Consultants
         </div>
     </div>
     
