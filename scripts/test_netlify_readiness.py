@@ -17,9 +17,9 @@ import sys
 from pathlib import Path
 
 ROOT = Path(__file__).parent.parent
-PASS = "✅"
-FAIL = "❌"
-WARN = "⚠️ "
+PASS = "[PASS]"
+FAIL = "[FAIL]"
+WARN = "[WARN]"
 
 results: list[tuple[str, bool, str]] = []
 
@@ -27,14 +27,14 @@ results: list[tuple[str, bool, str]] = []
 def check(name: str, ok: bool, detail: str = "") -> bool:
     results.append((name, ok, detail))
     icon = PASS if ok else FAIL
-    print(f"  {icon}  {name}" + (f"  — {detail}" if detail else ""))
+    print(f"  {icon}  {name}" + (f"  -- {detail}" if detail else ""))
     return ok
 
 
 def section(title: str) -> None:
-    print(f"\n{'─'*60}")
+    print(f"\n{'-'*60}")
     print(f"  {title}")
-    print(f"{'─'*60}")
+    print(f"{'-'*60}")
 
 
 # ── 1. Git submodule check ────────────────────────────────────────────────────
@@ -116,11 +116,11 @@ result = subprocess.run(
     ["git", "grep", "-l", r"@hotmail\|@gmail\|+91[0-9]"],
     cwd=ROOT, capture_output=True, text=True
 )
-# Exclude: CI guard (which contains the pattern as a grep string),
-# README/docs (intentional contact info), and gitignored status MDs
+# Exclude: CI guard, this script itself, README/docs, and gitignored status MDs
 _excluded_prefixes = (
-    ".github/workflows/",  # CI guard contains the pattern as a literal string
-    "README", "docs/",     # intentional contact info
+    ".github/workflows/",    # CI guard contains the pattern as a literal string
+    "README", "docs/",       # intentional contact info
+    "scripts/test_netlify",  # this script contains the pattern as a grep arg
 )
 pii_files = [
     f for f in result.stdout.splitlines()
@@ -154,7 +154,7 @@ check("__pycache__/ ignored",   "__pycache__/" in gitignore)
 check("Telemetry file ignored", "Bridge_GAD_Telemetry.json" in gitignore)
 
 # ── Summary ───────────────────────────────────────────────────────────────────
-print(f"\n{'═'*60}")
+print(f"\n{'='*60}")
 passed = sum(1 for _, ok, _ in results if ok)
 total  = len(results)
 failed = [name for name, ok, _ in results if not ok]
@@ -164,12 +164,12 @@ if failed:
     print(f"\n  Failed checks:")
     for name in failed:
         print(f"    {FAIL}  {name}")
-    print(f"\n  {'═'*60}")
-    print("  ❌  NOT READY for Netlify deploy — fix issues above")
-    print(f"  {'═'*60}\n")
+    print(f"\n  {'='*60}")
+    print("  NOT READY for Netlify deploy -- fix issues above")
+    print(f"  {'='*60}\n")
     sys.exit(1)
 else:
-    print(f"\n  {'═'*60}")
-    print("  ✅  READY for Netlify deploy")
-    print(f"  {'═'*60}\n")
+    print(f"\n  {'='*60}")
+    print("  READY for Netlify deploy")
+    print(f"  {'='*60}\n")
     sys.exit(0)

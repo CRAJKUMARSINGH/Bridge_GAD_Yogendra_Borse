@@ -35,10 +35,20 @@ def _load_modules():
     )
     from bridge_gad.multi_sheet_generator import DetailedSheetGenerator
     from bridge_gad.ai_optimizer import AIDesignOptimizer, ReportGenerator
+    from bridge_gad.bridge_canvas_features import (
+        validate_bridge_parameters as bc_validate,
+        cleanup_dxf_entities,
+        BRIDGE_TEMPLATES,
+        make_template_excel,
+        batch_generate,
+        batch_results_to_zip,
+    )
     return (
         BridgeGADGenerator, BridgeTemplates, DesignQualityChecker,
         Bridge3DVisualizer, DesignComparator, DetailedSheetGenerator,
         AIDesignOptimizer, ReportGenerator,
+        bc_validate, cleanup_dxf_entities, BRIDGE_TEMPLATES,
+        make_template_excel, batch_generate, batch_results_to_zip,
     )
 
 
@@ -46,6 +56,8 @@ def _load_modules():
     BridgeGADGenerator, BridgeTemplates, DesignQualityChecker,
     Bridge3DVisualizer, DesignComparator, DetailedSheetGenerator,
     AIDesignOptimizer, ReportGenerator,
+    bc_validate, cleanup_dxf_entities, BC_TEMPLATES,
+    make_template_excel, batch_generate, batch_results_to_zip,
 ) = _load_modules()
 
 st.set_page_config(
@@ -788,6 +800,14 @@ with tab1:
                                 st.session_state.last_params = _calc
                             except Exception:
                                 st.session_state.last_params = getattr(gen, "variables", {})
+                            # BridgeCanvas DXF cleanup — remove orphan/degenerate entities
+                            try:
+                                _cleanup = cleanup_dxf_entities(gen.doc)
+                                _total_cleaned = sum(_cleanup.values())
+                                if _total_cleaned:
+                                    st.caption(f"🧹 Cleaned {_total_cleaned} degenerate entities from DXF")
+                            except Exception:
+                                pass
                         else:
                             st.error("❌ Failed to generate drawing")
 
@@ -988,46 +1008,85 @@ with tab3:
     st.markdown('<p class="section-title">🎯 Quick-Start Templates</p>', unsafe_allow_html=True)
     st.markdown("""
     <div class="glass-card" style="padding:0.8rem 1.2rem; margin-bottom:0.5rem;">
-        Select a standard bridge template to generate a ready-to-use Excel parameter file instantly.
+        5 standard bridge templates from BridgeCanvas. Download as Excel, modify if needed, then upload in Tab 1.
     </div>
     """, unsafe_allow_html=True)
-    
-    templates = BridgeTemplates.list_templates()
-    
-    col1, col2 = st.columns(2)
-    
-    with col1:
-        selected_template = st.selectbox(
+
+    _t3_col1, _t3_col2 = st.columns([2, 1])
+    with _t3_col1:
+        _t3_sel = st.selectbox(
             "Choose Template",
-            list(templates.keys()),
-            format_func=lambda x: templates[x]
+            list(BC_TEMPLATES.keys()),
+            format_func=lambda x: BC_TEMPLATES[x]["name"],
+            key="bc_template_sel",
         )
-    
-    if selected_template:
-        template = BridgeTemplates.get_template(selected_template)
-        
-        with col2:
-            st.metric("Bridge Type", template.bridge_type)
-        
-        st.markdown(f"**Description**: {template.description}")
-        
-        st.dataframe(pd.DataFrame([template.parameters]).T, use_container_width=True)
-        
-        template_df = pd.DataFrame([
-            [value, key, key] for key, value in template.parameters.items()
-        ], columns=['Value', 'Variable', 'Description'])
-        
-        excel_buffer = BytesIO()
-        with pd.ExcelWriter(excel_buffer, engine='openpyxl') as writer:
-            template_df.to_excel(writer, index=False, sheet_name='Parameters')
-        excel_buffer.seek(0)
-        
+    if _t3_sel:
+        _t3_tmpl = BC_TEMPLATES[_t3_sel]
+        with _t3_col2:
+            st.metric("Parameters", len(_t3_tmpl["parameters"]))
+        st.markdown(f"**{_t3_tmpl['description']}**")
+
+        # IRC quick-validate the template
+        _t3_valid = bc_validate(_t3_tmpl["parameters"])
+        _t3_score = _t3_valid["score"]
+        _t3_color = "#39ff14" if _t3_score >= 80 else "#ffb347" if _t3_score >= 60 else "#ff4444"
+        st.markdown(
+            f'<span style="color:{_t3_color};font-weight:700;">IRC Compliance: {_t3_score}/100</span>',
+            unsafe_allow_html=True,
+        )
+
+        with st.expander("📊 Parameters"):
+            st.dataframe(
+                pd.DataFrame(
+                    [{"Parameter": k, "Value": v} for k, v in _t3_tmpl["parameters"].items()]
+                ),
+                use_container_width=True,
+            )
+
         st.download_button(
-            f"📥 Use {template.name}",
-            data=excel_buffer.getvalue(),
-            file_name=f"{selected_template}_bridge.xlsx",
-            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+            f"📥 Download {_t3_tmpl['name']} Excel",
+            data=make_template_excel(_t3_tmpl["parameters"]),
+            file_name=f"{_t3_sel}_bridge.xlsx",
+            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            type="primary",
         )
+
+    st.markdown('<p class="section-title">📦 Batch Processing</p>', unsafe_allow_html=True)
+    _t3_batch_files = st.file_uploader(
+        "Upload multiple Excel files for batch DXF generation",
+        type=["xlsx", "xls"],
+        accept_multiple_files=True,
+        key="batch_upload",
+    )
+    if _t3_batch_files:
+        st.info(f"{len(_t3_batch_files)} file(s) queued")
+        if st.button("🚀 Generate All (Batch)", key="batch_gen", type="primary"):
+            with st.spinner(f"Generating {len(_t3_batch_files)} drawings…"):
+                _t3_inputs = [(f.name, f.read()) for f in _t3_batch_files]
+                _t3_results = batch_generate(_t3_inputs)
+                _t3_ok = sum(1 for r in _t3_results if r["success"])
+                st.success(f"✅ {_t3_ok}/{len(_t3_results)} generated")
+                if _t3_ok:
+                    _t3_zip = batch_results_to_zip(_t3_results)
+                    st.download_button(
+                        "📦 Download All DXF (ZIP)",
+                        data=_t3_zip,
+                        file_name=f"batch_bridge_{datetime.now().strftime('%Y%m%d_%H%M%S')}.zip",
+                        mime="application/zip",
+                    )
+                for _r in _t3_results:
+                    _icon = "✅" if _r["success"] else "❌"
+                    with st.expander(f"{_icon} {_r['filename']}"):
+                        if _r["success"]:
+                            st.download_button(
+                                "📥 Download DXF",
+                                data=_r["dxf_bytes"],
+                                file_name=Path(_r["filename"]).stem + ".dxf",
+                                mime="application/dxf",
+                                key=f"batch_dl_{_r['filename']}",
+                            )
+                        else:
+                            st.error(_r["error"])
 
 # FIX LOVABLE-001: Tabs 4-7 now show real content instead of blank placeholders
 with tab4:
@@ -1049,6 +1108,22 @@ with tab4:
                 st.write(f"⚠️ {w}")
         if not result.get("critical_issues") and not result.get("warnings"):
             st.success("✅ Design passes all checks!")
+
+        # BridgeCanvas IRC/IS validator — second opinion
+        st.markdown('<p class="section-title">🏛️ IRC/IS Standards Check (BridgeCanvas)</p>', unsafe_allow_html=True)
+        _bc_result = bc_validate(var_dict)
+        _bc_score  = _bc_result["score"]
+        _bc_color  = "#39ff14" if _bc_score >= 80 else "#ffb347" if _bc_score >= 60 else "#ff4444"
+        st.markdown(
+            f'<span style="color:{_bc_color};font-weight:700;font-size:1.1rem;">IRC Score: {_bc_score}/100</span>',
+            unsafe_allow_html=True,
+        )
+        for _ci in _bc_result["critical_issues"]:
+            st.error(_ci)
+        for _wi in _bc_result["warnings"]:
+            st.warning(_wi)
+        if not _bc_result["critical_issues"] and not _bc_result["warnings"]:
+            st.success("✅ Passes all IRC/IS checks")
     else:
         st.info("Upload and generate a drawing in Tab 1 first, then return here for quality checks.")
 

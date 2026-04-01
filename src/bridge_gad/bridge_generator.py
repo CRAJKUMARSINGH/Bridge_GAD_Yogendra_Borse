@@ -88,18 +88,31 @@ class BridgeGADGenerator:
     def read_variables_from_excel(self, file_path: Path) -> bool:
         """Read bridge parameters from Excel file.
 
-        FIX GENSPARK-002: validates column count before assignment to avoid
-        ValueError on non-standard (< 3 column) Excel files.
+        FIX GENSPARK-002: validates column count before assignment.
+        Accepts exactly 3-column (Value, Variable, Description) format.
+        Files with other column counts (e.g. span-data tables) are rejected
+        gracefully so the caller can fall back to SmartInputProcessor.
         """
         try:
             df = pd.read_excel(file_path, header=None)
-            # FIX GENSPARK-002: guard against files with fewer than 3 columns
+
+            # Skip header row if first cell is 'Value' or 'Variable'
+            if str(df.iloc[0, 0]).strip().lower() in ("value", "variable"):
+                df = df.iloc[1:].reset_index(drop=True)
+
             if df.shape[1] < 3:
                 logger.error(
-                    f"Excel file must have at least 3 columns (Value, Variable, Description), "
-                    f"got {df.shape[1]}: {file_path}"
+                    "Excel file must have at least 3 columns (Value, Variable, Description), "
+                    "got %d: %s", df.shape[1], file_path
                 )
                 return False
+
+            if df.shape[1] > 3:
+                # More than 3 columns — not the standard parameter format.
+                # Try using only the first 3 columns; if they don't look like
+                # Value/Variable/Description, reject cleanly.
+                df = df.iloc[:, :3]
+
             df.columns = ['Value', 'Variable', 'Description']
             
             # Create a dictionary for easy access
