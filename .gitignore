@@ -99,3 +99,7 @@ temp/
 
 # BridgeCanvas — legacy archive, contains nested .git dirs, not needed for deployment
 BridgeCanvas/
+
+# Phase Two test/build artifact trees — binary DXF/PDF/XLSX/ZIP outputs (not source)
+TEST_N_RUN/
+TEST_RUN_OUTPUT/

@@ -867,80 +867,127 @@ class BridgeGADGenerator:
             logger.error(f"Error drawing A4 border: {e}")
     
     def add_title_block(self):
-        """Add editable title block with RKS LEGAL company information."""
+        """Add editable title block with modern GAD metadata fields."""
         try:
             right = float(self.variables.get('RIGHT', 50))
-            lbridge = float(self.variables.get('LBRIDGE', 36))
-            
-            # Get editable values from Excel
+
+            # Metadata from Excel
             project_name = str(self.variables.get('PROJECT_NAME', 'Bridge General Arrangement Drawing'))
-            company_name = str(self.variables.get('COMPANY_NAME', 'RKS LEGAL'))
-            company_full = str(self.variables.get('COMPANY_FULL', 'Techno Legal Consultants'))
+            company_name = str(self.variables.get('COMPANY_NAME', 'Bridge GAD Generator'))
+            company_full = str(self.variables.get('COMPANY_FULL', 'Bridge Engineering Drawing Package'))
             address = str(self.variables.get('ADDRESS', '303 Vallabh Apartment, Udaipur'))
-            # FIX KERO-004: PII defaults replaced with env-var lookups
             import os as _os
             email = str(self.variables.get('EMAIL', _os.environ.get('CONTACT_EMAIL', 'contact@example.com')))
             mobile = str(self.variables.get('MOBILE', _os.environ.get('CONTACT_PHONE', '+91XXXXXXXXXX')))
-            
+            drawing_no = str(self.variables.get('DRAWING_NO', self.variables.get('PROJECT_CODE', 'GAD-001')))
+            revision = str(self.variables.get('REVISION', 'R0'))
+            sheet_no = str(self.variables.get('SHEET_NO', '1'))
+            total_sheets = str(self.variables.get('TOTAL_SHEETS', '1'))
+            drawing_standard = str(self.variables.get('DRAWING_STANDARD', 'IRC/MoRTH project criteria'))
+            live_load = str(self.variables.get('DESIGN_LIVE_LOAD', 'To project basis'))
+            drawn_by = str(self.variables.get('DRAWN_BY', 'Design Cell'))
+            checked_by = str(self.variables.get('CHECKED_BY', 'Checker'))
+            approved_by = str(self.variables.get('APPROVED_BY', 'Approver'))
+            bearing_type = str(self.variables.get('BEARING_TYPE', 'As per design'))
+            scale_text = f"Scale 1:{self.scale1} / Sec 1:{self.scale2}"
+
             # Position title block on right side of drawing
             title_block_x = self.hpos(right) + 50 * self.scale1
             title_block_y = self.vpos(float(self.variables.get('TOPRL', 115))) + 100
-            
-            # Main title
+
+            block_width = 72 * self.scale1
+            block_height = 34 * self.scale1
+            row_height = block_height / 6
+            x0 = title_block_x
+            y0 = title_block_y
+            x1 = x0 + block_width
+            y1 = y0 - block_height
+
+            self.msp.add_lwpolyline(
+                [(x0, y0), (x1, y0), (x1, y1), (x0, y1)],
+                close=True,
+                dxfattribs={'lineweight': 35},
+            )
+
+            for row in range(1, 6):
+                y_line = y0 - row * row_height
+                self.msp.add_line((x0, y_line), (x1, y_line))
+
+            self.msp.add_line((x0 + block_width * 0.62, y0 - 2 * row_height), (x0 + block_width * 0.62, y0 - 3 * row_height))
+            self.msp.add_line((x0 + block_width * 0.80, y0 - 2 * row_height), (x0 + block_width * 0.80, y0 - 3 * row_height))
+            self.msp.add_line((x0 + block_width / 3, y0 - 4 * row_height), (x0 + block_width / 3, y0 - 5 * row_height))
+            self.msp.add_line((x0 + 2 * block_width / 3, y0 - 4 * row_height), (x0 + 2 * block_width / 3, y0 - 5 * row_height))
+
+            text_x = x0 + 1.2 * self.scale1
             self.msp.add_text("GENERAL ARRANGEMENT DRAWING", dxfattribs={
-                'height': 3.0 * self.scale1,
-                'insert': (title_block_x, title_block_y),
-                'halign': 0
-            })
-            
-            # Project name (editable)
-            y_pos = title_block_y - 4.0 * self.scale1
-            self.msp.add_text(f"Project: {project_name}", dxfattribs={
-                'height': 2.0 * self.scale1,
-                'insert': (title_block_x, y_pos),
-                'halign': 0
-            })
-            
-            # Company information box
-            y_pos -= 5.0 * self.scale1
-            self.msp.add_text(company_name, dxfattribs={
-                'height': 2.5 * self.scale1,
-                'insert': (title_block_x, y_pos),
-                'halign': 0,
+                'height': 2.4 * self.scale1,
+                'insert': (text_x, y0 - 1.6 * self.scale1),
                 'style': 'Arial'
             })
-            
-            y_pos -= 3.0 * self.scale1
-            self.msp.add_text(company_full, dxfattribs={
+            self.msp.add_text(project_name, dxfattribs={
                 'height': 1.8 * self.scale1,
-                'insert': (title_block_x, y_pos),
-                'halign': 0
+                'insert': (text_x, y0 - row_height - 1.5 * self.scale1),
+                'style': 'Arial'
             })
-            
-            # Address
-            y_pos -= 2.5 * self.scale1
+            self.msp.add_text(f"DRG NO: {drawing_no}", dxfattribs={
+                'height': 1.25 * self.scale1,
+                'insert': (text_x, y0 - 2 * row_height - 1.3 * self.scale1)
+            })
+            self.msp.add_text(f"REV: {revision}", dxfattribs={
+                'height': 1.25 * self.scale1,
+                'insert': (x0 + block_width * 0.64, y0 - 2 * row_height - 1.3 * self.scale1)
+            })
+            self.msp.add_text(f"SHEET: {sheet_no}/{total_sheets}", dxfattribs={
+                'height': 1.25 * self.scale1,
+                'insert': (x0 + block_width * 0.81, y0 - 2 * row_height - 1.3 * self.scale1)
+            })
+            self.msp.add_text(f"STANDARD: {drawing_standard}", dxfattribs={
+                'height': 1.1 * self.scale1,
+                'insert': (text_x, y0 - 3 * row_height - 1.2 * self.scale1)
+            })
+            self.msp.add_text(f"LIVE LOAD: {live_load}", dxfattribs={
+                'height': 1.1 * self.scale1,
+                'insert': (text_x, y0 - 3 * row_height - 2.8 * self.scale1)
+            })
+            self.msp.add_text(f"BEARING: {bearing_type}", dxfattribs={
+                'height': 1.1 * self.scale1,
+                'insert': (text_x, y0 - 3 * row_height - 4.4 * self.scale1)
+            })
+            self.msp.add_text(f"DRAWN BY: {drawn_by}", dxfattribs={
+                'height': 1.0 * self.scale1,
+                'insert': (text_x, y0 - 4 * row_height - 1.2 * self.scale1)
+            })
+            self.msp.add_text(f"CHECKED BY: {checked_by}", dxfattribs={
+                'height': 1.0 * self.scale1,
+                'insert': (x0 + block_width / 3 + 0.8 * self.scale1, y0 - 4 * row_height - 1.2 * self.scale1)
+            })
+            self.msp.add_text(f"APPROVED BY: {approved_by}", dxfattribs={
+                'height': 1.0 * self.scale1,
+                'insert': (x0 + 2 * block_width / 3 + 0.8 * self.scale1, y0 - 4 * row_height - 1.2 * self.scale1)
+            })
+            self.msp.add_text(company_name, dxfattribs={
+                'height': 1.1 * self.scale1,
+                'insert': (text_x, y0 - 5 * row_height - 1.1 * self.scale1),
+                'style': 'Arial'
+            })
+            self.msp.add_text(company_full, dxfattribs={
+                'height': 0.95 * self.scale1,
+                'insert': (text_x, y0 - 5 * row_height - 2.5 * self.scale1)
+            })
+            self.msp.add_text(scale_text, dxfattribs={
+                'height': 0.95 * self.scale1,
+                'insert': (text_x, y1 + 2.5 * self.scale1)
+            })
             self.msp.add_text(address, dxfattribs={
-                'height': 1.5 * self.scale1,
-                'insert': (title_block_x, y_pos),
-                'halign': 0
+                'height': 0.85 * self.scale1,
+                'insert': (x0 + block_width * 0.42, y1 + 2.5 * self.scale1)
             })
-            
-            # Contact info
-            y_pos -= 2.0 * self.scale1
-            self.msp.add_text(f"Email: {email}", dxfattribs={
-                'height': 1.3 * self.scale1,
-                'insert': (title_block_x, y_pos),
-                'halign': 0
+            self.msp.add_text(f"{email} | {mobile}", dxfattribs={
+                'height': 0.8 * self.scale1,
+                'insert': (x0 + block_width * 0.42, y1 + 1.1 * self.scale1)
             })
-            
-            y_pos -= 1.8 * self.scale1
-            self.msp.add_text(f"Mobile: {mobile}", dxfattribs={
-                'height': 1.3 * self.scale1,
-                'insert': (title_block_x, y_pos),
-                'halign': 0
-            })
-            
-            logger.info("Title block with RKS LEGAL information added")
+
+            logger.info("Standards-aware title block added")
         except Exception as e:
             logger.error(f"Error adding title block: {e}")
     
@@ -988,6 +1035,12 @@ class BridgeGADGenerator:
             kerbw = float(self.variables.get('KERBW', 0.23))
             slbthe = float(self.variables.get('SLBTHE', 0.75))
             kerbd = float(self.variables.get('KERBD', 0.15))
+            footpathw = float(self.variables.get('FOOTPATHW', 0.0))
+            utilityd = float(self.variables.get('UTILITYD', 0.0))
+            wcth = float(self.variables.get('WCTH', 0.08))
+            crossfall = float(self.variables.get('CROSSFALL', 0.025))
+            crashb = int(float(self.variables.get('CRASHB', 0)))
+            barrierh = float(self.variables.get('BARRIERH', 1.10 if crashb else 0.0))
             capt = float(self.variables.get('CAPT', 110))
             capb = float(self.variables.get('CAPB', 109.4))
             piertw = float(self.variables.get('PIERTW', 1.2))
@@ -1004,7 +1057,20 @@ class BridgeGADGenerator:
             side_y_base = self.datum  # Start at datum level
             
             # Draw deck cross-section with calculated bounds
-            deck_bounds = self.draw_deck_cross_section(side_x_offset, side_y_base, ccbr, kerbw, slbthe, kerbd, rtl)
+            deck_bounds = self.draw_deck_cross_section(
+                side_x_offset,
+                side_y_base,
+                ccbr,
+                kerbw,
+                slbthe,
+                kerbd,
+                rtl,
+                footpath_width=footpathw,
+                barrier_height=barrierh if crashb else 0.0,
+                utility_duct_width=utilityd,
+                wearing_course_thickness=wcth,
+                crossfall=crossfall,
+            )
             
             # Draw typical pier cross-section below deck
             if nspan > 1 and deck_bounds:
@@ -1018,11 +1084,24 @@ class BridgeGADGenerator:
         except Exception as e:
             logger.error(f"Error drawing side elevation: {e}")
     
-    def draw_deck_cross_section(self, x_offset: float, y_base: float, ccbr: float, 
-                               kerbw: float, slbthe: float, kerbd: float, rtl: float):
-        """Draw deck cross-section showing carriageway and kerbs. Returns bounds for label positioning."""
+    def draw_deck_cross_section(
+        self,
+        x_offset: float,
+        y_base: float,
+        ccbr: float,
+        kerbw: float,
+        slbthe: float,
+        kerbd: float,
+        rtl: float,
+        footpath_width: float = 0.0,
+        barrier_height: float = 0.0,
+        utility_duct_width: float = 0.0,
+        wearing_course_thickness: float = 0.0,
+        crossfall: float = 0.025,
+    ):
+        """Draw deck cross-section with roadway accessories. Returns bounds for label positioning."""
         # Calculate deck section dimensions with direct scaling
-        total_width = ccbr + 2 * kerbw
+        total_width = ccbr + 2 * kerbw + 2 * footpath_width
         deck_thickness = slbthe
         
         # Direct coordinate calculations (no double scaling)
@@ -1037,6 +1116,8 @@ class BridgeGADGenerator:
         y_deck_top = y_base
         y_deck_bottom = y_base - deck_thickness * height_offset
         y_kerb_top = y_base + kerbd * height_offset
+        y_wc_mid = y_deck_top + wearing_course_thickness * height_offset
+        half_camber_drop = max(ccbr, 0.0) * crossfall * height_offset / 2.0
         
         # Draw main deck slab
         deck_points = [
@@ -1047,31 +1128,115 @@ class BridgeGADGenerator:
         ]
         self.msp.add_lwpolyline(deck_points, close=True)
         
+        footpath_width_scaled = footpath_width * self.hhs * section_scale
         # Draw left kerb
         kerb_width_scaled = kerbw * self.hhs * section_scale
-        left_kerb_x = x_start + kerb_width_scaled
+        left_kerb_x = x_start + footpath_width_scaled + kerb_width_scaled
         left_kerb_points = [
-            (x_start, y_deck_top),
+            (x_start + footpath_width_scaled, y_deck_top),
             (left_kerb_x, y_deck_top),
             (left_kerb_x, y_kerb_top),
-            (x_start, y_kerb_top)
+            (x_start + footpath_width_scaled, y_kerb_top)
         ]
         self.msp.add_lwpolyline(left_kerb_points, close=True)
         
         # Draw right kerb
-        right_kerb_x = x_end - kerb_width_scaled
+        right_kerb_x = x_end - footpath_width_scaled - kerb_width_scaled
         right_kerb_points = [
             (right_kerb_x, y_deck_top),
-            (x_end, y_deck_top),
-            (x_end, y_kerb_top),
+            (x_end - footpath_width_scaled, y_deck_top),
+            (x_end - footpath_width_scaled, y_kerb_top),
             (right_kerb_x, y_kerb_top)
         ]
         self.msp.add_lwpolyline(right_kerb_points, close=True)
+
+        # Draw footpaths if specified
+        if footpath_width_scaled > 0:
+            self.msp.add_lwpolyline([
+                (x_start, y_deck_top),
+                (x_start + footpath_width_scaled, y_deck_top),
+                (x_start + footpath_width_scaled, y_kerb_top),
+                (x_start, y_kerb_top),
+            ], close=True)
+            self.msp.add_lwpolyline([
+                (x_end - footpath_width_scaled, y_deck_top),
+                (x_end, y_deck_top),
+                (x_end, y_kerb_top),
+                (x_end - footpath_width_scaled, y_kerb_top),
+            ], close=True)
+
+        # Draw wearing course / cross fall as a crown line
+        carriageway_left = x_start + footpath_width_scaled + kerb_width_scaled
+        carriageway_right = x_end - footpath_width_scaled - kerb_width_scaled
+        self.msp.add_lwpolyline([
+            (carriageway_left, y_wc_mid - half_camber_drop),
+            (x_center, y_wc_mid),
+            (carriageway_right, y_wc_mid - half_camber_drop),
+        ])
+
+        # Draw crash barriers or parapets if specified
+        feature_top = max(y_kerb_top, y_wc_mid)
+        if barrier_height > 0:
+            barrier_width_scaled = max(0.25 * self.hhs * section_scale, kerb_width_scaled * 0.65)
+            left_barrier_top = y_kerb_top + barrier_height * height_offset
+            right_barrier_top = left_barrier_top
+            self.msp.add_lwpolyline([
+                (x_start, y_kerb_top),
+                (x_start + barrier_width_scaled, y_kerb_top),
+                (x_start + barrier_width_scaled, left_barrier_top),
+                (x_start, left_barrier_top),
+            ], close=True)
+            self.msp.add_lwpolyline([
+                (x_end - barrier_width_scaled, y_kerb_top),
+                (x_end, y_kerb_top),
+                (x_end, right_barrier_top),
+                (x_end - barrier_width_scaled, right_barrier_top),
+            ], close=True)
+            feature_top = max(feature_top, left_barrier_top)
+
+        # Draw indicative utility duct beneath left footpath/kerb zone
+        if utility_duct_width > 0:
+            duct_width_scaled = utility_duct_width * self.hhs * section_scale
+            duct_height = max(0.25 * height_offset, deck_thickness * height_offset * 0.35)
+            duct_x1 = x_start + footpath_width_scaled * 0.2
+            duct_x2 = min(duct_x1 + duct_width_scaled, x_center - kerb_width_scaled * 0.4)
+            duct_y1 = y_deck_bottom + 0.18 * deck_thickness * height_offset
+            duct_y2 = duct_y1 + duct_height
+            self.msp.add_lwpolyline([
+                (duct_x1, duct_y1),
+                (duct_x2, duct_y1),
+                (duct_x2, duct_y2),
+                (duct_x1, duct_y2),
+            ], close=True)
+            self.msp.add_text("UTILITY DUCT", dxfattribs={
+                'height': 0.9 * self.scale1,
+                'insert': (duct_x1, duct_y2 + 0.7 * self.scale1),
+            })
+
+        # Add concise labels for current practice components
+        if footpath_width_scaled > 0:
+            self.msp.add_text("FOOTPATH", dxfattribs={
+                'height': 0.85 * self.scale1,
+                'insert': (x_start + 0.25 * footpath_width_scaled, y_kerb_top + 0.8 * self.scale1),
+            })
+        if barrier_height > 0:
+            self.msp.add_text("BARRIER", dxfattribs={
+                'height': 0.85 * self.scale1,
+                'insert': (x_end - max(0.25 * self.hhs * section_scale, kerb_width_scaled * 0.65), feature_top + 0.8 * self.scale1),
+            })
+        self.msp.add_text(f"CROSSFALL {crossfall * 100:.1f}%", dxfattribs={
+            'height': 0.85 * self.scale1,
+            'insert': (x_center - 5.0 * self.scale1, y_wc_mid + 1.0 * self.scale1),
+        })
+        self.msp.add_text(f"WC {wearing_course_thickness * 1000:.0f} mm", dxfattribs={
+            'height': 0.85 * self.scale1,
+            'insert': (x_center - 4.0 * self.scale1, y_wc_mid + 2.3 * self.scale1),
+        })
         
         # Add section label - dynamically positioned above section with proper spacing
         label_x = x_center
         label_spacing = max(3.0 * self.scale1, 50)  # Dynamic spacing based on scale
-        label_y = y_kerb_top + label_spacing
+        label_y = feature_top + label_spacing
         self.msp.add_text("SECTION A-A", dxfattribs={
             'height': 2.0 * self.scale1,
             'insert': (label_x, label_y),
@@ -1084,7 +1249,7 @@ class BridgeGADGenerator:
             'x_start': x_start,
             'x_end': x_end,
             'x_center': x_center,
-            'y_top': y_deck_top,
+            'y_top': feature_top,
             'y_bottom': y_deck_bottom,
             'y_kerb': y_kerb_top,
             'label_y': label_y

@@ -1,11 +1,8 @@
 """
-Multi-Sheet Detailed Drawing Generator
-Generates 4 separate A4 landscape sheets with detailed views:
-1. Pier Elevation (enlarged)
-2. Abutment Elevation (enlarged)
-3. Plan View (top)
-4. Section View (profile)
-All with borders, labels, dimensions, and RKS LEGAL title block
+Multi-sheet detailed drawing generator.
+
+Generates detailed A4 landscape sheets and a phase two package that is closer to
+an actual submission bundle.
 """
 
 import ezdxf
@@ -13,6 +10,8 @@ from ezdxf.math import Vec2, Vec3
 from pathlib import Path
 from typing import Dict, Tuple
 import math
+
+from .standards import get_owner_profile, phase_two_sheet_rows
 
 
 class DetailedSheetGenerator:
@@ -59,7 +58,7 @@ class DetailedSheetGenerator:
         msp.add_lwpolyline(points_inner, dxfattribs={'lineweight': 25})
     
     def _draw_title_block(self, msp, sheet_title: str, sheet_num: int, total_sheets: int, variables: Dict):
-        """Draw professional RKS LEGAL title block"""
+        """Draw standards-aware title block."""
         y_pos = self.MARGIN + 2
         
         # Title block background rectangle
@@ -83,7 +82,7 @@ class DetailedSheetGenerator:
         }).set_placement((self.MARGIN + 5, title_y_end - 5))
         
         # Company info
-        company = str(variables.get('COMPANY_NAME', 'RKS LEGAL'))
+        company = str(variables.get('COMPANY_NAME', 'Bridge GAD Generator'))
         msp.add_text(f"By: {company}", dxfattribs={
             'height': 2,
             'style': 'STANDARD'
@@ -103,16 +102,129 @@ class DetailedSheetGenerator:
             'style': 'STANDARD'
         }).set_placement((self.A4_WIDTH - 80, title_y_end - 10))
         
-        # Contact info footer — FIX KERO-004: PII defaults from env vars
+        drawing_no = str(variables.get("DRAWING_NO", "GAD-001"))
+        revision = str(variables.get("REVISION", "R0"))
+        owner_profile = get_owner_profile(variables.get("OWNER_PROFILE"))
+        msp.add_text(f"Drg: {drawing_no}  Rev: {revision}", dxfattribs={'height': 1.8}).set_placement(
+            (self.A4_WIDTH - 80, title_y_end - 15)
+        )
+        msp.add_text(f"Basis: {owner_profile.owner}", dxfattribs={'height': 1.8}).set_placement(
+            (self.MARGIN + 70, title_y_end - 10)
+        )
+
+        # Contact info footer. PII defaults come from env vars.
         import os as _os
         address = str(variables.get('ADDRESS', '303 Vallabh Apartment, Udaipur'))
         email = str(variables.get('EMAIL', _os.environ.get('CONTACT_EMAIL', 'contact@example.com')))
         phone = str(variables.get('MOBILE', _os.environ.get('CONTACT_PHONE', '+91XXXXXXXXXX')))
         
         footer_y = self.MARGIN + 3
-        msp.add_text(f"📍 {address[:40]}", dxfattribs={'height': 1.5}).set_placement((self.MARGIN + 5, footer_y))
-        msp.add_text(f"📧 {email}", dxfattribs={'height': 1.5}).set_placement((self.MARGIN + 5, footer_y - 3))
-        msp.add_text(f"📱 {phone}", dxfattribs={'height': 1.5}).set_placement((self.MARGIN + 5, footer_y - 6))
+        msp.add_text(f"Addr: {address[:40]}", dxfattribs={'height': 1.5}).set_placement((self.MARGIN + 5, footer_y))
+        msp.add_text(f"Email: {email}", dxfattribs={'height': 1.5}).set_placement((self.MARGIN + 5, footer_y - 3))
+        msp.add_text(f"Phone: {phone}", dxfattribs={'height': 1.5}).set_placement((self.MARGIN + 5, footer_y - 6))
+
+    def _save_sheet_set(self, sheets, output_path: Path):
+        """Save a sheet list to numbered DXF files."""
+
+        output_dir = output_path.parent
+        output_stem = output_path.stem
+        filenames = []
+        for i, sheet in enumerate(sheets, 1):
+            filename = output_dir / f"{output_stem}_Sheet{i}.dxf"
+            sheet.saveas(filename)
+            filenames.append(filename)
+        return filenames
+
+    def generate_index_sheet(self, variables: Dict) -> ezdxf.Drawing:
+        """Generate the phase two drawing index sheet."""
+
+        doc, msp = self._create_sheet("DRAWING INDEX")
+        schedule = phase_two_sheet_rows()
+        self._draw_border(msp, 1)
+        self._draw_title_block(msp, "DRAWING INDEX AND BASIS", 1, len(schedule), variables)
+
+        start_x = 25
+        start_y = 150
+        row_h = 12
+        col_x = [start_x, start_x + 22, start_x + 52, start_x + 150]
+
+        msp.add_text("Sheet", dxfattribs={'height': 2.5}).set_placement((col_x[0], start_y))
+        msp.add_text("Code", dxfattribs={'height': 2.5}).set_placement((col_x[1], start_y))
+        msp.add_text("Title", dxfattribs={'height': 2.5}).set_placement((col_x[2], start_y))
+        msp.add_text("Purpose", dxfattribs={'height': 2.5}).set_placement((col_x[3], start_y))
+
+        y = start_y - 8
+        for row in schedule:
+            msp.add_line((start_x, y + 3), (self.A4_WIDTH - 25, y + 3))
+            msp.add_text(row["Sheet No"], dxfattribs={'height': 2.0}).set_placement((col_x[0], y))
+            msp.add_text(row["Code"], dxfattribs={'height': 2.0}).set_placement((col_x[1], y))
+            msp.add_text(row["Title"], dxfattribs={'height': 2.0}).set_placement((col_x[2], y))
+            msp.add_text(row["Purpose"], dxfattribs={'height': 1.8}).set_placement((col_x[3], y))
+            y -= row_h
+
+        profile = get_owner_profile(variables.get("OWNER_PROFILE"))
+        msp.add_text(f"Owner Profile: {profile.owner}", dxfattribs={'height': 2.2}).set_placement((25, 55))
+        msp.add_text(f"Drawing Standard: {profile.drawing_standard[:70]}", dxfattribs={'height': 2.0}).set_placement((25, 47))
+        msp.add_text(f"Live Load Basis: {profile.design_live_load[:72]}", dxfattribs={'height': 2.0}).set_placement((25, 39))
+        msp.add_text(profile.review_note[:90], dxfattribs={'height': 1.8}).set_placement((25, 31))
+        return doc
+
+    def generate_bearing_joint_sheet(self, variables: Dict) -> ezdxf.Drawing:
+        """Generate a notes-driven bearing and expansion joint sheet."""
+
+        doc, msp = self._create_sheet("BEARING AND JOINT NOTES")
+        total = len(phase_two_sheet_rows())
+        self._draw_border(msp, 6)
+        self._draw_title_block(msp, "BEARING AND EXPANSION JOINT NOTES", 6, total, variables)
+
+        bearing_type = str(variables.get("BEARING_TYPE", "As per design"))
+        bearing_w = float(variables.get("BEARING_W", 0.0))
+        expjt = float(variables.get("EXPJT", 0.025))
+        span1 = float(variables.get("SPAN1", 12))
+
+        box = [(30, 60), (267, 60), (267, 145), (30, 145), (30, 60)]
+        msp.add_lwpolyline(box, dxfattribs={'lineweight': 35})
+        msp.add_text("Typical note set", dxfattribs={'height': 3.0}).set_placement((35, 138))
+        notes = [
+            f"1. Bearing system: {bearing_type}",
+            f"2. Indicative bearing seat width: {bearing_w:.2f} m",
+            f"3. Expansion joint movement gap shown in GAD: {expjt:.3f} m",
+            f"4. Review expansion provisions against final span arrangement of {span1:.2f} m typical span.",
+            "5. Final bearing schedule, load table, and manufacturer data to be issued in detail drawings.",
+        ]
+        y = 126
+        for note in notes:
+            msp.add_text(note, dxfattribs={'height': 2.2}).set_placement((38, y))
+            y -= 14
+        return doc
+
+    def generate_drainage_utility_sheet(self, variables: Dict) -> ezdxf.Drawing:
+        """Generate a drainage, safety, and utility notes sheet."""
+
+        doc, msp = self._create_sheet("DRAINAGE SAFETY UTILITY")
+        total = len(phase_two_sheet_rows())
+        self._draw_border(msp, 7)
+        self._draw_title_block(msp, "DRAINAGE, SAFETY AND UTILITY NOTES", 7, total, variables)
+
+        drainsp = float(variables.get("DRAINSP", 0.0))
+        barrierh = float(variables.get("BARRIERH", 0.0))
+        barrier_type = str(variables.get("BARRIERT", "Barrier / parapet"))
+        utilityd = float(variables.get("UTILITYD", 0.0))
+
+        box = [(30, 60), (267, 60), (267, 145), (30, 145), (30, 60)]
+        msp.add_lwpolyline(box, dxfattribs={'lineweight': 35})
+        notes = [
+            f"1. Drainage spout spacing shown/assumed: {drainsp:.2f} m",
+            f"2. Safety edge treatment: {barrier_type}, height {barrierh:.2f} m",
+            f"3. Utility duct width reserved in typical section: {utilityd:.2f} m",
+            "4. Confirm outlet locations, down-take routing, and maintenance access in detail design.",
+            "5. Barrier, kerb, and utility details to be coordinated with owner-specific standard drawings.",
+        ]
+        y = 132
+        for note in notes:
+            msp.add_text(note, dxfattribs={'height': 2.2}).set_placement((38, y))
+            y -= 14
+        return doc
     
     def _draw_dimensions(self, msp, positions: list, labels: list):
         """Add dimension lines and labels"""
@@ -123,11 +235,11 @@ class DetailedSheetGenerator:
             # Label text
             msp.add_text(label, dxfattribs={'height': 2}).set_placement((x - 3, y + 2))
     
-    def generate_pier_elevation(self, variables: Dict) -> ezdxf.Drawing:
+    def generate_pier_elevation(self, variables: Dict, sheet_num: int = 1, total_sheets: int = 4) -> ezdxf.Drawing:
         """Generate detailed pier elevation sheet"""
         doc, msp = self._create_sheet("PIER ELEVATION")
-        self._draw_border(msp, 1)
-        self._draw_title_block(msp, "PIER ELEVATION - ENLARGED", 1, 4, variables)
+        self._draw_border(msp, sheet_num)
+        self._draw_title_block(msp, "PIER ELEVATION - ENLARGED", sheet_num, total_sheets, variables)
         
         # Get dimensions
         piertw = float(variables.get('PIERTW', 1.2))
@@ -195,11 +307,11 @@ class DetailedSheetGenerator:
         
         return doc
     
-    def generate_abutment_elevation(self, variables: Dict) -> ezdxf.Drawing:
+    def generate_abutment_elevation(self, variables: Dict, sheet_num: int = 2, total_sheets: int = 4) -> ezdxf.Drawing:
         """Generate detailed abutment elevation sheet"""
         doc, msp = self._create_sheet("ABUTMENT ELEVATION")
-        self._draw_border(msp, 2)
-        self._draw_title_block(msp, "ABUTMENT ELEVATION - ENLARGED", 2, 4, variables)
+        self._draw_border(msp, sheet_num)
+        self._draw_title_block(msp, "ABUTMENT ELEVATION - ENLARGED", sheet_num, total_sheets, variables)
         
         # Get dimensions
         abtl = float(variables.get('ABTL', 13))
@@ -257,11 +369,11 @@ class DetailedSheetGenerator:
         
         return doc
     
-    def generate_plan_view(self, variables: Dict) -> ezdxf.Drawing:
+    def generate_plan_view(self, variables: Dict, sheet_num: int = 3, total_sheets: int = 4) -> ezdxf.Drawing:
         """Generate plan view (top view) sheet"""
         doc, msp = self._create_sheet("PLAN VIEW")
-        self._draw_border(msp, 3)
-        self._draw_title_block(msp, "PLAN VIEW - TOP", 3, 4, variables)
+        self._draw_border(msp, sheet_num)
+        self._draw_title_block(msp, "PLAN VIEW - TOP", sheet_num, total_sheets, variables)
         
         nspan = int(variables.get('NSPAN', 3))
         span1 = float(variables.get('SPAN1', 12))
@@ -325,11 +437,11 @@ class DetailedSheetGenerator:
         
         return doc
     
-    def generate_section_view(self, variables: Dict) -> ezdxf.Drawing:
+    def generate_section_view(self, variables: Dict, sheet_num: int = 4, total_sheets: int = 4) -> ezdxf.Drawing:
         """Generate section/profile view sheet"""
         doc, msp = self._create_sheet("SECTION VIEW")
-        self._draw_border(msp, 4)
-        self._draw_title_block(msp, "SECTION VIEW - PROFILE", 4, 4, variables)
+        self._draw_border(msp, sheet_num)
+        self._draw_title_block(msp, "SECTION VIEW - PROFILE", sheet_num, total_sheets, variables)
         
         # Get dimensions
         span1 = float(variables.get('SPAN1', 12))
@@ -406,23 +518,36 @@ class DetailedSheetGenerator:
         try:
             # Generate all sheets
             sheets = [
-                self.generate_pier_elevation(variables),
-                self.generate_abutment_elevation(variables),
-                self.generate_plan_view(variables),
-                self.generate_section_view(variables)
+                self.generate_pier_elevation(variables, 1, 4),
+                self.generate_abutment_elevation(variables, 2, 4),
+                self.generate_plan_view(variables, 3, 4),
+                self.generate_section_view(variables, 4, 4),
             ]
             
-            # Save as individual files
-            output_dir = output_path.parent
-            output_stem = output_path.stem
-            
-            filenames = []
-            for i, sheet in enumerate(sheets, 1):
-                filename = output_dir / f"{output_stem}_Sheet{i}.dxf"
-                sheet.saveas(filename)
-                filenames.append(filename)
-            
+            self._save_sheet_set(sheets, output_path)
             return True
         except Exception as e:
             print(f"Error generating sheets: {e}")
+            return False
+
+    def generate_phase_two_package(self, variables: Dict, output_path: Path) -> bool:
+        """Generate the seven-sheet phase two package."""
+
+        try:
+            total = len(phase_two_sheet_rows())
+            variables = dict(variables)
+            variables.setdefault("TOTAL_SHEETS", str(total))
+            sheets = [
+                self.generate_index_sheet(variables),
+                self.generate_plan_view(variables, 2, total),
+                self.generate_section_view(variables, 3, total),
+                self.generate_abutment_elevation(variables, 4, total),
+                self.generate_pier_elevation(variables, 5, total),
+                self.generate_bearing_joint_sheet(variables),
+                self.generate_drainage_utility_sheet(variables),
+            ]
+            self._save_sheet_set(sheets, output_path)
+            return True
+        except Exception as e:
+            print(f"Error generating phase two package: {e}")
             return False

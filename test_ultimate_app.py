@@ -362,3 +362,156 @@ if __name__ == "__main__":
     
     # Exit code
     sys.exit(0 if tests_passed else 1)
+
+
+# ── Focused regression tests (pytest-compatible) ────────────────────────────
+
+def test_standards_metadata():
+    """Sanity-check the shared standards metadata module (folder-2 version).
+
+    Covers:
+      - PARAMETER_SPECS dataclass registry has new keys (OwnerProfile, phase 2).
+      - Helper functions get_parameter_spec / get_parameter_description /
+        get_owner_profile return sensible values and safe fallbacks.
+      - OWNER_PROFILES expose all four authority presets.
+      - PHASE_TWO_SHEETS defines the 7-sheet package.
+      - DEFAULT_METADATA contains submission defaults.
+      - build_template_rows, merge_with_metadata, checklist_rows,
+        owner_profile_rows, phase_two_sheet_rows produce non-empty rows.
+    """
+    from bridge_gad import standards as s
+    from bridge_gad.standards import (
+        ParameterSpec, OwnerProfile, build_template_rows,
+        merge_with_metadata, checklist_rows, owner_profile_rows,
+        phase_two_sheet_rows, get_parameter_description, get_owner_profile,
+        get_parameter_spec,
+    )
+
+    # Must-have new keys in the dataclass registry
+    new_keys = [
+        "DRAWING_STANDARD", "DESIGN_LIVE_LOAD", "ROAD_CLASS",
+        "MEDIANW", "BARRIERT", "BEARING_W", "OWNER_PROFILE", "TOTAL_SHEETS",
+        "DRAWING_NO", "REVISION", "LANES", "FOOTPATHW", "CRASHB",
+        "BARRIERH", "UTILITYD", "DRAINSP", "CROSSFALL", "EXPJT",
+        "BEARING_TYPE",
+    ]
+    for k in new_keys:
+        assert k in s.PARAMETER_SPECS, f"Missing PARAMETER_SPECS[{k}]"
+        spec = s.PARAMETER_SPECS[k]
+        assert isinstance(spec, ParameterSpec)
+        assert spec.key == k
+        assert spec.description and isinstance(spec.description, str)
+        assert isinstance(spec.unit, str)
+        assert spec.category and isinstance(spec.category, str)
+
+    # Unknown key -> get_parameter_spec returns a safe Custom fallback.
+    fallback = get_parameter_spec("XYZ_NOT_A_THING")
+    assert fallback.category == "Custom"
+    assert "XYZ_NOT_A_THING" in fallback.description
+
+    # get_parameter_description for known/unknown keys.
+    assert get_parameter_description("DRAWING_NO") != "DRAWING_NO"
+    assert "Project-specific" in get_parameter_description("XYZ_ABC")
+
+    # Owner profiles: four presets + safe default.
+    for p in ("IRC_MORTH", "NHAI", "RAILWAY", "ULB"):
+        assert p in s.OWNER_PROFILES
+        prof = s.OWNER_PROFILES[p]
+        assert isinstance(prof, OwnerProfile)
+        assert prof.owner and prof.drawing_standard
+    assert get_owner_profile(None).key == "IRC_MORTH"
+    assert get_owner_profile("bogus").key == "IRC_MORTH"
+    assert get_owner_profile("NHAI").key == "NHAI"
+
+    # Phase two package: 7 sheet schedule.
+    sheets = phase_two_sheet_rows()
+    assert len(sheets) == 7
+    codes = {row["Code"] for row in sheets}
+    for c in ("IDX", "GAD", "TYP", "ABT", "PIER", "BRG", "DRN"):
+        assert c in codes, f"Phase 2 missing sheet code {c}"
+
+    # DEFAULT_METADATA includes minimum submission fields.
+    for tb in ["DRAWING_STANDARD", "DESIGN_LIVE_LOAD", "REVISION",
+               "DRAWN_BY", "CHECKED_BY", "APPROVED_BY",
+               "SHEET_NO", "TOTAL_SHEETS", "OWNER_PROFILE"]:
+        assert tb in s.DEFAULT_METADATA and s.DEFAULT_METADATA[tb]
+
+    # STANDARD_CHECKLIST non-empty + checklist_rows formatter.
+    assert len(s.STANDARD_CHECKLIST) >= 5
+    cl = checklist_rows()
+    assert len(cl) == len(s.STANDARD_CHECKLIST)
+    assert "Checklist Item" in cl[0]
+
+    # build_template_rows produces expected columns.
+    rows = build_template_rows({"CCBR": 8.0, "LANES": 2})
+    assert len(rows) == 2
+    for r in rows:
+        for col in ("Value", "Variable", "Description", "Unit", "Category"):
+            assert col in r
+
+    # merge_with_metadata layers DEFAULT_METADATA then overrides then params.
+    merged = merge_with_metadata({"LANES": 3}, DRAWING_NO="MY-99",
+                                  OWNER_PROFILE="NHAI")
+    assert merged["LANES"] == 3
+    assert merged["DRAWING_NO"] == "MY-99"
+    assert merged["OWNER_PROFILE"] == "NHAI"
+    assert merged["REVISION"] == s.DEFAULT_METADATA["REVISION"]
+
+    # owner_profile_rows returns all four presets.
+    ow = owner_profile_rows()
+    assert len(ow) == 4
+
+
+def test_template_excel_enriched():
+    """make_template_excel now exports 4 sheets including OwnerProfiles
+    and SheetIndex. Plus phase-two ZIP bundler runs without error.
+    """
+    from io import BytesIO
+    from bridge_gad.bridge_canvas_features import (
+        BRIDGE_TEMPLATES, make_template_excel, make_phase_two_package_zip,
+    )
+    import pandas as pd
+    import zipfile
+
+    params = BRIDGE_TEMPLATES["simple_12m"]["parameters"]
+    for required in ["LANES", "MEDIANW", "BARRIERT", "BEARING_W",
+                     "ROAD_CLASS", "DRAWING_STANDARD", "DESIGN_LIVE_LOAD",
+                     "TOTAL_SHEETS", "OWNER_PROFILE"]:
+        assert required in params, f"Template missing {required}"
+
+    xls_bytes = make_template_excel(params)
+    assert isinstance(xls_bytes, bytes) and len(xls_bytes) > 2048
+
+    with pd.ExcelFile(BytesIO(xls_bytes), engine="openpyxl") as xls:
+        for required_sheet in ("Parameters", "Checklist",
+                               "OwnerProfiles", "SheetIndex"):
+            assert required_sheet in xls.sheet_names, \
+                f"Missing workbook sheet {required_sheet}"
+
+        df_params = pd.read_excel(xls, sheet_name="Parameters")
+        assert {"Value", "Variable", "Description", "Unit", "Category"} \
+            .issubset(set(df_params.columns))
+        variables = set(df_params["Variable"].astype(str).tolist())
+        for k in ["LANES", "MEDIANW", "BARRIERT", "BEARING_W",
+                  "DRAWING_STANDARD", "DESIGN_LIVE_LOAD",
+                  "OWNER_PROFILE", "TOTAL_SHEETS"]:
+            assert k in variables, f"Parameters sheet missing {k}"
+
+        df_owner = pd.read_excel(xls, sheet_name="OwnerProfiles")
+        assert {"Profile Key", "Owner", "Drawing Standard",
+                "Design Live Load", "Review Note"} \
+            .issubset(set(df_owner.columns))
+        assert len(df_owner) == 4  # four authority presets
+
+        df_sheet = pd.read_excel(xls, sheet_name="SheetIndex")
+        assert len(df_sheet) == 7  # phase two schedule
+
+    # Phase two ZIP bundler produces a valid 3-entry zip.
+    zip_bytes = make_phase_two_package_zip(params)
+    assert isinstance(zip_bytes, bytes) and len(zip_bytes) > 4096
+    with zipfile.ZipFile(BytesIO(zip_bytes), "r") as zf:
+        names = set(zf.namelist())
+        for required in ("phase2/phase2_parameters.xlsx",
+                          "phase2/phase2_sheet_index.csv",
+                          "phase2/phase2_manifest.json"):
+            assert required in names, f"ZIP missing {required}"

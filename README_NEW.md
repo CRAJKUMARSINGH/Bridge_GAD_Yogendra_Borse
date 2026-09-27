@@ -147,13 +147,19 @@ Your Excel file must include these bridge parameters:
 ### ✅ Completed
 - [x] Core Excel → DXF generation
 - [x] 5 standard bridge templates
-- [x] IRC/IS standards validation
+- [x] IRC/IS standards validation (IRC 5, 6, 21, 83, SP:114 via standards.py)
 - [x] Batch processing
 - [x] Web interface
 - [x] Multi-span support
+- [x] Phase Two 7-sheet DXF package (IDX, GAD, TYP, ABT, PIER, BRG, DRN)
+- [x] 4-sheet enriched Excel template (Parameters, Checklist, OwnerProfiles, SheetIndex)
+- [x] 6-row enriched professional title block (STANDARD/LIVE LOAD/Bearing + DRAWN/CHECKED/APPROVED + Project Footer)
+- [x] PDF export (print-ready drawings via dxf_to_pdf.py + booklet bundling)
+- [x] Phase Two ZIP bundler (XLSX data + CSV manifest + DXF sheets)
+- [x] IRC parameter enrichment engine (3.5m per-lane width, parapet height, drainage spacing, cross-fall)
+- [x] Owner profile presets (NHAI, PWD, MORTH, RAILWAY)
 
 ### 🚧 In Progress
-- [ ] PDF export (print-ready drawings)
 - [ ] SVG export (web display)
 - [ ] 3D visualization preview
 - [ ] Mobile-responsive UI
