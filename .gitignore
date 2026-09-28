@@ -103,3 +103,7 @@ BridgeCanvas/
 # Phase Two test/build artifact trees — binary DXF/PDF/XLSX/ZIP outputs (not source)
 TEST_N_RUN/
 TEST_RUN_OUTPUT/
+
+# Local deps staging (bypass sandbox roaming-profile write guard; never commit wheels)
+.deps/
+vendor/

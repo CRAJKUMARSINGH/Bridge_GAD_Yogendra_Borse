@@ -515,3 +515,89 @@ def test_template_excel_enriched():
                           "phase2/phase2_sheet_index.csv",
                           "phase2/phase2_manifest.json"):
             assert required in names, f"ZIP missing {required}"
+
+
+def test_phase_three_package_zip():
+    """make_phase_two_package_zip(include_phase_three=True) and the
+    dedicated make_phase_three_package_zip helper produce the correct
+    11-sheet submission bundles with phase-3 markers and no invented
+    data leaks into the manifest.
+    """
+    from io import BytesIO
+    from bridge_gad.bridge_canvas_features import (
+        BRIDGE_TEMPLATES, make_phase_two_package_zip,
+        make_phase_three_package_zip,
+    )
+    from bridge_gad.standards import (
+        PHASE_THREE_CODE_SET, phase_three_sheet_rows,
+    )
+    import pandas as pd
+    import zipfile
+    import json
+
+    params = BRIDGE_TEMPLATES["simple_12m"]["parameters"]
+
+    # --- Helper A: phase_two wrapper with include_phase_three=True ---
+    zip_p2_p3 = make_phase_two_package_zip(params, include_phase_three=True)
+    assert isinstance(zip_p2_p3, bytes) and len(zip_p2_p3) > 4096
+
+    with zipfile.ZipFile(BytesIO(zip_p2_p3), "r") as zf:
+        names_p2 = set(zf.namelist())
+        for required in ("phase2/phase2_parameters.xlsx",
+                          "phase2/phase2_sheet_index.csv",
+                          "phase2/phase2_manifest.json"):
+            assert required in names_p2, f"P2+P3 ZIP missing {required}"
+
+        manifest = json.loads(zf.read("phase2/phase2_manifest.json").decode("utf-8"))
+        assert manifest["include_phase_three"] is True
+        assert manifest["total_sheets"] == 11
+        assert len(manifest["sheets"]) == 11
+        codes_p2 = {row["Code"] for row in manifest["sheets"]}
+        assert PHASE_THREE_CODE_SET.issubset(codes_p2), \
+            f"P2+P3 sheet codes missing: {PHASE_THREE_CODE_SET - codes_p2}"
+
+        csv_rows = pd.read_csv(BytesIO(zf.read("phase2/phase2_sheet_index.csv")))
+        assert len(csv_rows) == 11, \
+            f"P2+P3 CSV sheet index expected 11 rows, got {len(csv_rows)}"
+
+        with pd.ExcelFile(BytesIO(zf.read("phase2/phase2_parameters.xlsx")),
+                          engine="openpyxl") as xls:
+            df_sheet = pd.read_excel(xls, sheet_name="SheetIndex")
+            assert len(df_sheet) == 11, \
+                f"P2+P3 XLSX SheetIndex expected 11 rows, got {len(df_sheet)}"
+
+    # --- Helper B: dedicated make_phase_three_package_zip rewrites paths ---
+    zip_p3 = make_phase_three_package_zip(params)
+    assert isinstance(zip_p3, bytes) and len(zip_p3) > 4096
+
+    with zipfile.ZipFile(BytesIO(zip_p3), "r") as zf:
+        names_p3 = set(zf.namelist())
+        # No phase2/ prefixes remain after the rewrite step.
+        phase2_leftovers = [n for n in names_p3 if n.startswith("phase2/") or "phase2_" in n]
+        assert phase2_leftovers == [], \
+            f"P3 ZIP still contains phase2 names: {phase2_leftovers}"
+        for required in ("phase3/phase3_parameters.xlsx",
+                          "phase3/phase3_sheet_index.csv",
+                          "phase3/phase3_manifest.json"):
+            assert required in names_p3, f"P3 ZIP missing {required}"
+
+        manifest3 = json.loads(zf.read("phase3/phase3_manifest.json").decode("utf-8"))
+        assert manifest3.get("phase3") is True, \
+            "P3 manifest must carry phase3=True flag after rewrite"
+        assert manifest3["include_phase_three"] is True
+        assert manifest3["total_sheets"] == 11
+        assert len(manifest3["sheets"]) == 11
+        codes_p3 = {row["Code"] for row in manifest3["sheets"]}
+        assert PHASE_THREE_CODE_SET.issubset(codes_p3)
+
+        csv_p3 = pd.read_csv(BytesIO(zf.read("phase3/phase3_sheet_index.csv")))
+        assert len(csv_p3) == 11
+
+        with pd.ExcelFile(BytesIO(zf.read("phase3/phase3_parameters.xlsx")),
+                          engine="openpyxl") as xls:
+            for required_sheet in ("Parameters", "Checklist",
+                                   "OwnerProfiles", "SheetIndex"):
+                assert required_sheet in xls.sheet_names
+            df_s3 = pd.read_excel(xls, sheet_name="SheetIndex")
+            assert len(df_s3) == 11
+

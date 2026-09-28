@@ -121,6 +121,102 @@ PARAMETER_SPECS: Dict[str, ParameterSpec] = {
     "LASLAB": ParameterSpec("LASLAB", "Approach slab length", "m", "Approach"),
     "APWTH": ParameterSpec("APWTH", "Approach slab width", "m", "Approach"),
     "APTHK": ParameterSpec("APTHK", "Approach slab thickness", "m", "Approach"),
+    # ============================================================
+    # PHASE 3 — Detail Sheets parametric vocabulary.
+    # Values are *indicative proportions or placeholders only*.
+    # Anything not directly derivable from the bridge inputs is
+    # explicitly tagged TBC_BY_ENGINEER. Per technical-integrity
+    # rule: we NEVER invent engineering data.
+    # ============================================================
+    # --- Bearings ---
+    "BEARING_L": ParameterSpec(
+        "BEARING_L",
+        "Indicative bearing pad length along span — default 1.2×BEARING_W or TBC_BY_ENGINEER",
+        "m", "Bearings",
+    ),
+    "BEARING_T": ParameterSpec(
+        "BEARING_T",
+        "Bearing pad / pot thickness (indicative). TBC_BY_ENGINEER from manufacturer data",
+        "m", "Bearings",
+    ),
+    "BEARING_DOWEL_D": ParameterSpec(
+        "BEARING_DOWEL_D",
+        "Anchor / dowel bar diameter for bearing fixing. TBC_BY_ENGINEER",
+        "mm", "Bearings",
+    ),
+    "BEARING_DOWEL_N": ParameterSpec(
+        "BEARING_DOWEL_N",
+        "Number of anchor dowels per bearing. TBC_BY_ENGINEER",
+        category="Bearings",
+    ),
+    "BEARING_PAD_TYPE": ParameterSpec(
+        "BEARING_PAD_TYPE",
+        "Pad detail type: Elastomeric / POT / PQ / Spherical — used on BRG-DET title",
+        category="Bearings",
+    ),
+    # --- Expansion Joints ---
+    "EJ_TYPE": ParameterSpec(
+        "EJ_TYPE",
+        "Expansion joint system: SWSF (strip-seal) / Modular / Pourous / Sealed (note only)",
+        category="Bearings",
+    ),
+    "EJ_SLOT_W": ParameterSpec(
+        "EJ_SLOT_W",
+        "Indicative slot / throat width for expansion joint detail. Default derived from EXPJT or TBC_BY_ENGINEER",
+        "m", "Bearings",
+    ),
+    "EJ_SEALANT": ParameterSpec(
+        "EJ_SEALANT",
+        "Joint sealant or strip-seal membrane type. TBC_BY_ENGINEER / owner std",
+        category="Bearings",
+    ),
+    # --- Wing / Return Walls ---
+    "WING_W": ParameterSpec(
+        "WING_W",
+        "Wing wall stem thickness (indicative). TBC_BY_ENGINEER or derived",
+        "m", "Substructure",
+    ),
+    "WING_L": ParameterSpec(
+        "WING_L",
+        "Wing wall return length measured from abutment face (indicative). TBC_BY_ENGINEER",
+        "m", "Substructure",
+    ),
+    "WING_H": ParameterSpec(
+        "WING_H",
+        "Wing wall height above founding — default RTL minus footing top level",
+        "m", "Substructure",
+    ),
+    "REBAR_MAIN_D": ParameterSpec(
+        "REBAR_MAIN_D",
+        "Wing / substructure main bar diameter. TBC_BY_ENGINEER",
+        "mm", "Substructure",
+    ),
+    "REBAR_TIE_D": ParameterSpec(
+        "REBAR_TIE_D",
+        "Tie / stirrup diameter in wing wall stem. TBC_BY_ENGINEER",
+        "mm", "Substructure",
+    ),
+    "REBAR_SPACING": ParameterSpec(
+        "REBAR_SPACING",
+        "Typical tie/stirrup spacing c/c. TBC_BY_ENGINEER",
+        "mm", "Substructure",
+    ),
+    # --- Drainage Downtakes / Scuppers ---
+    "SCUPPER_W": ParameterSpec(
+        "SCUPPER_W",
+        "Kerb inlet / scupper opening width. Indicative; TBC_BY_ENGINEER",
+        "m", "Drainage",
+    ),
+    "DOWNPIPE_D": ParameterSpec(
+        "DOWNPIPE_D",
+        "Downpipe / downtake nominal diameter. TBC_BY_ENGINEER",
+        "mm", "Drainage",
+    ),
+    "OUTLET_TYPE": ParameterSpec(
+        "OUTLET_TYPE",
+        "Outfall type: splash plate / hopper head / piped — note only",
+        category="Drainage",
+    ),
 }
 
 
@@ -192,6 +288,17 @@ PHASE_TWO_SHEETS: List[Dict[str, str]] = [
     {"Sheet No": "6", "Code": "BRG", "Title": "Bearing and Expansion Joint Notes", "Purpose": "Bearing type, movement joints, sheet notes"},
     {"Sheet No": "7", "Code": "DRN", "Title": "Drainage, Safety and Utility Notes", "Purpose": "Drainage spacing, barriers, utility duct and notes"},
 ]
+
+PHASE_THREE_APPENDIX: List[Dict[str, str]] = [
+    {"Sheet No": "8",  "Code": "BRG-DET", "Title": "Bearing Details — Plan and Section",     "Purpose": "Bearing pad / pot plan, section through seat, dowels, anchor bolts, TBC markers"},
+    {"Sheet No": "9",  "Code": "EXPJ-DET","Title": "Expansion Joint Details",                "Purpose": "Strip-seal / modular joint section, filler board, sealant, movement gap"},
+    {"Sheet No": "10", "Code": "WING-DET","Title": "Wing and Return Wall Details",           "Purpose": "Wing wall section, stem + base, reinforcement schedule, TBC markers"},
+    {"Sheet No": "11", "Code": "DRN-DET", "Title": "Drainage Scupper and Downtake Details",  "Purpose": "Kerb scupper plan/section, downtake routing, downpipe/outlet details"},
+]
+
+PHASE_THREE_SHEETS: List[Dict[str, str]] = PHASE_TWO_SHEETS + PHASE_THREE_APPENDIX
+
+PHASE_THREE_CODE_SET = {row["Code"] for row in PHASE_THREE_APPENDIX}
 
 
 def get_parameter_spec(key: str) -> ParameterSpec:
@@ -271,3 +378,9 @@ def phase_two_sheet_rows(items: Iterable[Dict[str, str]] | None = None) -> List[
     """Return sheet schedule rows for the phase two package."""
 
     return list(items or PHASE_TWO_SHEETS)
+
+
+def phase_three_sheet_rows(items: Iterable[Dict[str, str]] | None = None) -> List[Dict[str, str]]:
+    """Return sheet schedule rows for the phase three (11-sheet) package."""
+
+    return list(items or PHASE_THREE_SHEETS)

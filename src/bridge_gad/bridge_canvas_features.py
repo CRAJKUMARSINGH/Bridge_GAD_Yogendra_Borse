@@ -17,7 +17,7 @@ import os
 import zipfile
 from io import BytesIO
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, Iterable, List, Optional, Tuple
 
 import pandas as pd
 
@@ -28,6 +28,7 @@ from .standards import (
     merge_with_metadata,
     owner_profile_rows,
     phase_two_sheet_rows,
+    phase_three_sheet_rows,
 )
 
 logger = logging.getLogger(__name__)
@@ -360,12 +361,29 @@ BRIDGE_TEMPLATES: Dict[str, Dict[str, Any]] = {
 }
 
 
-def make_template_excel(params: Dict[str, Any]) -> bytes:
-    """Return Excel bytes for a template parameter dict."""
+def make_template_excel(
+    params: Dict[str, Any],
+    *,
+    sheet_rows: Iterable[Dict[str, str]] | None = None,
+) -> bytes:
+    """Return Excel bytes for a template parameter dict.
+
+    Parameters
+    ----------
+    params:
+        Bridge parameter dictionary.
+    sheet_rows:
+        Optional override for the ``SheetIndex`` worksheet rows.  When
+        ``None`` (default) the seven-row phase-two schedule is used.
+        Pass :func:`phase_three_sheet_rows` for the eleven-row
+        submission set.
+    """
     df = pd.DataFrame(build_template_rows(params))
     checklist_df = pd.DataFrame(checklist_rows())
     owner_df = pd.DataFrame(owner_profile_rows())
-    sheet_df = pd.DataFrame(phase_two_sheet_rows())
+    sheet_df = pd.DataFrame(
+        phase_two_sheet_rows() if sheet_rows is None else list(sheet_rows)
+    )
     buf = BytesIO()
     with pd.ExcelWriter(buf, engine="openpyxl") as w:
         df.to_excel(w, index=False, sheet_name="Parameters")
@@ -381,6 +399,7 @@ def make_phase_two_package_zip(
     *,
     include_pdfs: bool = False,
     pdf_layout: str = "A4_landscape",
+    include_phase_three: bool = False,
 ) -> bytes:
     """Bundle a phase two starter package into a ZIP archive.
 
@@ -397,21 +416,33 @@ def make_phase_two_package_zip(
     pdf_layout:
         Page layout preset used when rendering PDFs (``A4_landscape``,
         ``A3_landscape``, etc.).
+    include_phase_three:
+        When True, also attach the 4 phase-three detail worksheets
+        (BRG-DET, EXPJ-DET, WING-DET, DRN-DET) and the 11-row schedule
+        in the manifest and CSV.  For the dedicated eleven-sheet ZIP
+        helper see :func:`make_phase_three_package_zip`.
     """
 
     enriched = merge_with_metadata(params)
+    if include_phase_three:
+        enriched["INCLUDE_PHASE_THREE"] = True
     profile = get_owner_profile(enriched.get("OWNER_PROFILE"))
+
+    rows_source = (
+        phase_three_sheet_rows() if include_phase_three else phase_two_sheet_rows()
+    )
     manifest: Dict[str, Any] = {
         "owner_profile": profile.key,
         "owner": profile.owner,
         "drawing_standard": enriched.get("DRAWING_STANDARD", profile.drawing_standard),
         "design_live_load": enriched.get("DESIGN_LIVE_LOAD", profile.design_live_load),
-        "total_sheets": len(phase_two_sheet_rows()),
-        "sheets": phase_two_sheet_rows(),
+        "total_sheets": len(rows_source),
+        "sheets": rows_source,
+        "include_phase_three": bool(include_phase_three),
     }
 
-    csv_bytes = pd.DataFrame(phase_two_sheet_rows()).to_csv(index=False).encode("utf-8")
-    workbook_bytes = make_template_excel(enriched)
+    csv_bytes = pd.DataFrame(rows_source).to_csv(index=False).encode("utf-8")
+    workbook_bytes = make_template_excel(enriched, sheet_rows=rows_source)
 
     drawings_extra: List[Tuple[str, bytes]] = []
     pdf_manifest: Dict[str, Any] = {"included": False}
@@ -440,7 +471,10 @@ def make_phase_two_package_zip(
 
             sheet_base = tdir / "phase2_pkg.dxf"
             dsg = DetailedSheetGenerator()
-            ok_pkg = bool(dsg.generate_phase_two_package(enriched, sheet_base))
+            if include_phase_three:
+                ok_pkg = bool(dsg.generate_phase_three_package(enriched, sheet_base))
+            else:
+                ok_pkg = bool(dsg.generate_phase_two_package(enriched, sheet_base))
             produced = sorted(sheet_base.parent.glob(f"{sheet_base.stem}_Sheet*.dxf"))
 
             opts = RenderOptions(layout=pdf_layout)
@@ -479,10 +513,11 @@ def make_phase_two_package_zip(
                         .replace("phase2_pkg_", "")
                         .replace("phase2_gad", "GAD Plan+Elevation")
                     )
+                suffix = " + Phase 3 Details" if include_phase_three else ""
                 book_p = bundle_drawings_to_pdf(
                     produced_for_book, book, opts=opts, page_titles=titles,
                     cover_page_title=(
-                        f"Phase 2 Drawing Booklet — {profile.owner}"
+                        f"Phase 2{suffix} Drawing Booklet — {profile.owner}"
                         f" — {len(produced_for_book)} sheet(s)"
                     ),
                 )
@@ -510,6 +545,67 @@ def make_phase_two_package_zip(
                 zf.writestr(arcname, payload)
     buf.seek(0)
     return buf.getvalue()
+
+
+def make_phase_three_package_zip(
+    params: Dict[str, Any],
+    *,
+    include_pdfs: bool = False,
+    pdf_layout: str = "A4_landscape",
+) -> bytes:
+    """Bundle the 11-sheet phase three submission package into a ZIP archive.
+
+    This is a thin convenience wrapper around
+    :func:`make_phase_two_package_zip` with ``include_phase_three=True`` and
+    a phase-three–prefixed ZIP layout.  The resulting archive contains:
+
+    * ``phase3/phase3_parameters.xlsx`` — enriched template workbook with
+      the four OwnerProfile presets, the 11-row sheet index, checklist,
+      and Phase 3 parameter vocabulary (bearing dims, expansion joint,
+      wing-wall reinforcement, drainage downtake specs).
+    * ``phase3/phase3_sheet_index.csv`` — CSV of the 11-sheet schedule.
+    * ``phase3/phase3_manifest.json`` — owner profile, live-load basis,
+      total sheet count (11), ``phase3=true`` flag, PDF rendering info.
+    * ``phase3/drawings/dxf/`` — when ``include_pdfs=True``: 1 single GAD
+      DXF + 11 numbered sheet DXF files.
+    * ``phase3/drawings/pdf/`` — when ``include_pdfs=True``: the matching
+      PDFs plus an ``ALL_BATCH_DRAWINGS`` booklet.
+
+    Technical-integrity note: every placeholder proportion on sheets 8–11
+    is ring-fenced on the DXF drawing itself with a ``TBC_BY_ENGINEER``
+    dashed stamp so the reviewer can see which values still need to be
+    resolved by a registered professional before issue.
+    """
+
+    inner = make_phase_two_package_zip(
+        params,
+        include_pdfs=include_pdfs,
+        pdf_layout=pdf_layout,
+        include_phase_three=True,
+    )
+    # Rewrite the ZIP: phase2/ → phase3/ AND phase2_ → phase3_ inside names
+    import io as _io
+    out = _io.BytesIO()
+    with zipfile.ZipFile(_io.BytesIO(inner), "r") as zin:
+        with zipfile.ZipFile(out, "w", zipfile.ZIP_DEFLATED) as zout:
+            for info in zin.infolist():
+                new_name = (
+                    info.filename
+                    .replace("phase2/", "phase3/", 1)
+                    .replace("/phase2_", "/phase3_")
+                )
+                payload = zin.read(info.filename)
+                if "manifest" in new_name.lower() and new_name.endswith(".json"):
+                    import json as _json
+                    try:
+                        obj = _json.loads(payload.decode("utf-8"))
+                        obj["phase3"] = True
+                        payload = _json.dumps(obj, indent=2).encode("utf-8")
+                    except Exception:
+                        pass
+                zout.writestr(new_name, payload)
+    out.seek(0)
+    return out.getvalue()
 
 
 def batch_results_to_zip(

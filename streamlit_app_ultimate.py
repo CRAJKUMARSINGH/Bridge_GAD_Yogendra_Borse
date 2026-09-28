@@ -40,6 +40,8 @@ def _load_modules():
         cleanup_dxf_entities,
         BRIDGE_TEMPLATES,
         make_template_excel,
+        make_phase_two_package_zip,
+        make_phase_three_package_zip,
         batch_generate,
         batch_results_to_zip,
     )
@@ -48,7 +50,8 @@ def _load_modules():
         Bridge3DVisualizer, DesignComparator, DetailedSheetGenerator,
         AIDesignOptimizer, ReportGenerator,
         bc_validate, cleanup_dxf_entities, BRIDGE_TEMPLATES,
-        make_template_excel, batch_generate, batch_results_to_zip,
+        make_template_excel, make_phase_two_package_zip,
+        make_phase_three_package_zip, batch_generate, batch_results_to_zip,
     )
 
 
@@ -57,7 +60,8 @@ def _load_modules():
     Bridge3DVisualizer, DesignComparator, DetailedSheetGenerator,
     AIDesignOptimizer, ReportGenerator,
     bc_validate, cleanup_dxf_entities, BC_TEMPLATES,
-    make_template_excel, batch_generate, batch_results_to_zip,
+    make_template_excel, make_phase_two_package_zip,
+    make_phase_three_package_zip, batch_generate, batch_results_to_zip,
 ) = _load_modules()
 
 st.set_page_config(
@@ -1049,6 +1053,36 @@ with tab3:
             file_name=f"{_t3_sel}_bridge.xlsx",
             mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
             type="primary",
+        )
+
+        _t3_include_p3 = st.checkbox(
+            "Include Phase 3 Detail Sheets (11-sheet submission bundle)",
+            value=False,
+            help=(
+                "Adds 4 consultant-grade detail sheets after the standard 7-sheet "
+                "GAD set: BRG-DET Bearing Plan+Section, EXPJ-DET Expansion Joint, "
+                "WING-DET Wing/Return Wall + Rebar, DRN-DET Scupper + Downtake. "
+                "All indicative proportions on sheets 8–11 are ring-fenced with a "
+                "TBC_BY_ENGINEER stamp so no invented data reaches the reviewer."
+            ),
+            key=f"p3_toggle_{_t3_sel}",
+        )
+
+        if _t3_include_p3:
+            _t3_pkg_bytes = make_phase_three_package_zip(_t3_tmpl["parameters"])
+            _t3_pkg_label = f"📦 Download Phase 3 ZIP (11-sheet + Details)"
+            _t3_pkg_fname = f"{_t3_sel}_bridge_phase3.zip"
+        else:
+            _t3_pkg_bytes = make_phase_two_package_zip(_t3_tmpl["parameters"])
+            _t3_pkg_label = f"📦 Download Phase 2 ZIP (7-sheet)"
+            _t3_pkg_fname = f"{_t3_sel}_bridge_phase2.zip"
+
+        st.download_button(
+            _t3_pkg_label,
+            data=_t3_pkg_bytes,
+            file_name=_t3_pkg_fname,
+            mime="application/zip",
+            key=f"pkg_dl_{_t3_sel}",
         )
 
     st.markdown('<p class="section-title">📦 Batch Processing</p>', unsafe_allow_html=True)

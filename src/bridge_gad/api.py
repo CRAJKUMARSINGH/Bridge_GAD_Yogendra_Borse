@@ -24,7 +24,7 @@ import uuid
 from pathlib import Path
 from typing import AsyncGenerator, Optional
 
-from fastapi import FastAPI, HTTPException, Request, UploadFile, File
+from fastapi import FastAPI, HTTPException, Request, UploadFile, File, Response
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, StreamingResponse
 import tempfile
@@ -93,6 +93,8 @@ async def root():
         "version": __version__,
         "endpoints": [
             {"path": "/predict",        "method": "POST", "description": "Sync: generate drawing (blocks until done)"},
+            {"path": "/template",       "method": "GET",  "description": "Download template workbook (query: template_key=[simple_12m|...])"},
+            {"path": "/package",        "method": "GET",  "description": "Download submission ZIP (template_key + include_phase_three bool)"},
             {"path": "/jobs",           "method": "POST", "description": "Async: enqueue generation job"},
             {"path": "/jobs/{job_id}",  "method": "GET",  "description": "Poll job status"},
             {"path": "/jobs/{job_id}/stream", "method": "GET", "description": "SSE: stream job status"},
@@ -285,6 +287,83 @@ async def metrics():
         s = j.get("status", "unknown")
         by_status[s] = by_status.get(s, 0) + 1
     return {"total_jobs": total, "by_status": by_status, "version": __version__}
+
+
+@app.get("/template")
+async def get_template(template_key: str = "simple_12m"):
+    """Return a 4-sheet parameter workbook (Parameters / Checklist /
+    OwnerProfiles / SheetIndex) seeded from the named bridge template.
+
+    Use ``/template?template_key=simple_12m`` or any key listed in
+    ``bridge_gad.bridge_canvas_features.BRIDGE_TEMPLATES``.
+    """
+    try:
+        from .bridge_canvas_features import BRIDGE_TEMPLATES, make_template_excel
+    except ImportError as exc:  # pragma: no cover - pandas/openpyxl env issue
+        raise HTTPException(
+            status_code=503,
+            detail=f"Template generator unavailable ({exc}). Install pandas+openpyxl.",
+        )
+    if template_key not in BRIDGE_TEMPLATES:
+        keys = sorted(BRIDGE_TEMPLATES.keys())
+        raise HTTPException(
+            status_code=404,
+            detail=f"Unknown template_key '{template_key}'. Available: {keys}",
+        )
+    params = BRIDGE_TEMPLATES[template_key]["parameters"]
+    xls_bytes = make_template_excel(params)
+    return Response(
+        content=xls_bytes,
+        media_type=_MIME_TYPES["xlsx"],
+        headers={
+            "Content-Disposition": f"attachment; filename={template_key}_bridge.xlsx"
+        },
+    )
+
+
+@app.get("/package")
+async def get_package(
+    template_key: str = "simple_12m",
+    include_phase_three: bool = False,
+):
+    """Return a submission ZIP bundle with enriched workbook, sheet
+    index CSV and JSON manifest.
+
+    * ``include_phase_three=false`` → 7-sheet Phase 2 (GAD/TYP/ABT/PIER/BRG/DRN + IDX).
+    * ``include_phase_three=true``  → 11-sheet Phase 3 with the four consultant-grade
+      detail sheets BRG-DET / EXPJ-DET / WING-DET / DRN-DET appended. All indicative
+      proportions on sheets 8–11 are ring-fenced on the DXF itself with the
+      ``TBC_BY_ENGINEER`` stamp.
+    """
+    try:
+        from .bridge_canvas_features import (
+            BRIDGE_TEMPLATES,
+            make_phase_two_package_zip,
+            make_phase_three_package_zip,
+        )
+    except ImportError as exc:  # pragma: no cover - pandas env issue
+        raise HTTPException(
+            status_code=503,
+            detail=f"Package generator unavailable ({exc}). Install pandas+openpyxl.",
+        )
+    if template_key not in BRIDGE_TEMPLATES:
+        keys = sorted(BRIDGE_TEMPLATES.keys())
+        raise HTTPException(
+            status_code=404,
+            detail=f"Unknown template_key '{template_key}'. Available: {keys}",
+        )
+    params = BRIDGE_TEMPLATES[template_key]["parameters"]
+    if include_phase_three:
+        zip_bytes = make_phase_three_package_zip(params)
+        fname = f"{template_key}_bridge_phase3.zip"
+    else:
+        zip_bytes = make_phase_two_package_zip(params)
+        fname = f"{template_key}_bridge_phase2.zip"
+    return Response(
+        content=zip_bytes,
+        media_type="application/zip",
+        headers={"Content-Disposition": f"attachment; filename={fname}"},
+    )
 
 
 if __name__ == "__main__":
