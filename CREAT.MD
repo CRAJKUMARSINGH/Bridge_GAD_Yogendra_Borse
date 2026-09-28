@@ -506,3 +506,106 @@ These are explicitly NOT deleted because of the cautious choices in this round:
 
 **Last Updated:** 2026-09-28 (continuation session — discrepancy fix applied; 26 files purged; GREEN 5/5 baseline re-verified)
 **Immediate Next Step (Option D per §8 + §11):** Milestone commit current state (39 modified/deleted tracked files total: `.gitignore` vendor fix + 35 deletes + C1 wiring in 6 source files) → push to `origin/main`.
+
+---
+
+## 13. RESTORE SESSION — 2026-09-28 (Evening)
+**Action:** Hard restore of `main` to milestone commit `11e9763`
+**Reason:** All patches applied by Kiro agent after `11e9763` produced drawings judged absurd / not matching the original clean output. Trae AI spec (`.trae/specs/gad_professional_layout_20260928/`) documents the pending work correctly but none of it was executed. Code is restored to the last known-good baseline.
+
+### 13.1 What Was Reverted
+
+| Commit | Action | Reason |
+|--------|--------|--------|
+| `e4512f4` | REVERTED | Kiro "integrate all-branch-patches" — imported bad bridge_generator from merge-integration, killed working drawing methods, added SweetWilled absurd outputs |
+| All drawing changes made in Kiro session (bridge_generator.py, calc_engine.py, config.py, multi_sheet_generator.py, pyproject.toml) | REVERTED | Resulted in non-engineering drawings |
+
+### 13.2 Remote Branches Deleted
+
+| Branch | Status |
+|--------|--------|
+| `origin/cursor-baseline` | ✅ DELETED |
+| `origin/cursor/update-landing-page-colours-bb84` | ✅ DELETED |
+| `origin/integrate/all-branch-patches` | ✅ DELETED |
+| `origin/merge-integration` | ✅ DELETED |
+| `origin/replit-baseline` | ✅ DELETED |
+
+**Only branch remaining:** `origin/main` at commit `11e9763`
+
+### 13.3 Current State
+- **HEAD → main → `11e9763`** — MILESTONE 100% COMPLETE: Audit C1 Wiring + 36 File Purge + GREEN 5/5 Baseline
+- **Local untracked (not committed, generated artifacts):**
+  - `.trae/` — Trae AI spec files (keep for reference)
+  - `outputs/Professional_Five_GAD/` — generated DXFs (gitignored)
+  - `outputs/professional_gad/` — generated DXF (gitignored)
+  - `_commit.ps1`, `_restore.ps1`, `_tmp_*` — temp scripts (delete after session)
+  - `robotic_five_gad.py` — Kiro test script (delete)
+
+### 13.4 Pending Work (from Trae spec — NOT YET IMPLEMENTED)
+The Trae AI agent wrote a full spec for the following work but **all 6 tasks remain `Status: pending`**:
+
+| Task | Description |
+|------|-------------|
+| Task 1 | Plan anchor derivation — replace `datum - 30.0` with CAPT-aligned dynamic `yc` |
+| Task 2 | Side elevation → separate companion DXF/PDF sheet ("Sheet 2 of 2") |
+| Task 3 | ZIP bundler to include companion side-elevation DXF + PDF |
+| Task 4 | Streamlit Tab 1 + FastAPI companion download links |
+| Task 5 | New regression test `test_professional_layout_plan_alignment` |
+| Task 6 | Logging + performance baseline |
+
+**Next action required:** Explicit instruction to start Task 1 from the Trae spec.
+
+**Last Updated:** 2026-09-28 (restore session)
+
+
+---
+
+## 13. Repository Restore — 2026-09-28 (This Session)
+
+**Action:** Hard reset + branch cleanup per explicit user instruction.
+
+### 13.1 What Was Done
+
+| Step | Action | Result |
+|------|--------|--------|
+| 1 | `git reset --hard 11e9763` | main restored to MILESTONE commit (2026-09-28 08:05 IST) |
+| 2 | `git push origin main` | Remote main now at 11e9763 ✅ |
+| 3 | Delete local branch `integrate/all-branch-patches` | ✅ Deleted |
+| 4 | Delete remote `origin/cursor-baseline` | ✅ Deleted |
+| 5 | Delete remote `origin/cursor/update-landing-page-colours-bb84` | ✅ Deleted |
+| 6 | Delete remote `origin/integrate/all-branch-patches` | ✅ Deleted |
+| 7 | Delete remote `origin/merge-integration` | ✅ Deleted |
+| 8 | Delete remote `origin/replit-baseline` | ✅ Deleted |
+| 9 | `git fetch --prune` | Remote refs cleaned ✅ |
+
+### 13.2 Final Repository State
+
+| Item | Value |
+|------|-------|
+| HEAD commit | `11e9763` |
+| Commit message | MILESTONE 100% COMPLETE: Audit C1 Wiring + 36 File Purge + GREEN 5/5 Baseline |
+| Commit date | 2026-09-28 08:05:40 IST |
+| Local branches | `main` only |
+| Remote branches | `origin/main` only |
+| Working tree | `CREAT.MD` modified (this entry) + untracked `.trae/` + generated outputs/ |
+
+### 13.3 What Was Reverted
+
+The commit `e4512f4` ("integrate: merge all remote branch patches into main") added by this Kiro session was removed from main. Specifically reverted:
+- `bill_generator.py`, `core_updater.py`, `living_gad.py`, `mesh_builder.py`, `faulty_plugin.py` (new files)
+- `tests/`, `ui/`, `app.py`, `code-junction/`, `Sample_test_input_files/` (new dirs/files)
+- Modified: `bridge_generator.py`, `bridge_canvas_features.py`, `multi_sheet_generator.py`, `calc_engine.py`, `config.py`, `pyproject.toml`
+
+### 13.4 Trae Spec Pending (Not Yet Implemented)
+
+The Trae AI agent created a full spec at `.trae/specs/gad_professional_layout_20260928/` covering:
+- **Task 1:** Dynamic plan anchor from `CAPT` RL (replace `datum - 30.0`)
+- **Task 2:** Side elevation → dedicated companion sheet (`_side_elevation.dxf`)
+- **Task 3:** ZIP + PDF bundler hookup for companion sheet
+- **Task 4:** Streamlit + FastAPI download links for companion
+- **Task 5:** Regression test suite
+- **Task 6:** Logging + performance baseline
+
+All 6 tasks are `Status: pending`. This is the next engineering phase.
+
+**Last Updated:** 2026-09-28 (restore session)
