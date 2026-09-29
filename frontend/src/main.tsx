@@ -2,7 +2,7 @@ import { ChangeEvent, FormEvent, useEffect, useMemo, useState } from "react";
 import { createRoot } from "react-dom/client";
 import "./styles.css";
 
-type BackendState = "checking" | "online" | "offline";
+type BackendState = "checking" | "online" | "demo" | "offline";
 
 type ProjectState = {
   name: string;
@@ -39,9 +39,9 @@ function App() {
     fetch("/api/health")
       .then((response) => {
         if (!response.ok) throw new Error("Backend unavailable");
-        return response.json();
+        return response.json() as Promise<{ mode?: string }>;
       })
-      .then(() => setBackend("online"))
+      .then((payload) => setBackend(payload.mode === "demo" ? "demo" : "online"))
       .catch(() => setBackend("offline"));
   }, []);
 
@@ -89,8 +89,8 @@ function App() {
       setNotice("DXF generated successfully. Download it from the export panel.");
       setBackend("online");
     } catch {
-      setNotice("The workspace is ready, but the Python generation service is not reachable.");
-      setBackend("offline");
+      setNotice("Live generation is not configured here yet. The review draft and 11-bridge PDF catalogue are still ready to use.");
+      setBackend("demo");
     } finally {
       setBusy(false);
     }
@@ -225,7 +225,8 @@ function App() {
               </div>
               <div className="export-actions">
                 {generatedUrl && <a className="button button-outline" href={generatedUrl} download={`${project.number}.dxf`}>Download generated DXF</a>}
-                <a className="button button-outline" href="/api/package?template_key=simple_12m&include_phase_three=true">Download Phase 3 ZIP</a>
+                <a className="button button-outline" href="/bridge-catalogue-11.pdf" target="_blank" rel="noreferrer">Open 11-bridge PDF catalogue ↗</a>
+                <a className="button button-outline" href="/samples/sample_input.xlsx" download>Download sample workbook</a>
               </div>
             </div>
           </aside>
