@@ -1,0 +1,6 @@
+modules = ["nodejs-24", "python-3.11"]
+entrypoint = "server/index.mjs"
+run = ["bash", "server/start.sh"]
+
+[deployment]
+run = ["bash", "server/start.sh"]
