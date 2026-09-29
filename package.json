@@ -1,0 +1,14 @@
+{
+  "name": "bridge-gad-workspace",
+  "private": true,
+  "version": "1.0.0",
+  "description": "React workspace and Node gateway for the Bridge GAD Generator",
+  "engines": {
+    "node": ">=18"
+  },
+  "scripts": {
+    "build": "npm --prefix frontend run build",
+    "dev": "npm --prefix frontend run dev",
+    "start": "node server/index.mjs"
+  }
+}
