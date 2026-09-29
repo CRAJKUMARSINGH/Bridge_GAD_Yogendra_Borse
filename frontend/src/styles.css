@@ -19,7 +19,7 @@
 
 * { box-sizing: border-box; }
 body { margin: 0; min-width: 320px; background: var(--bg); }
-button, input { font: inherit; }
+button, input, select { font: inherit; }
 button, a { -webkit-tap-highlight-color: transparent; }
 a { color: inherit; text-decoration: none; }
 
@@ -105,8 +105,9 @@ a { color: inherit; text-decoration: none; }
 .step-number { color: var(--cyan); font: 10px "DM Mono", monospace; }
 .control-panel label { display: grid; gap: 6px; margin-bottom: 12px; color: #a5b1b9; font-size: 10px; }
 .field-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
-input { width: 100%; padding: 9px 10px; color: #e7edf3; background: #0b1219; border: 1px solid rgba(210, 226, 235, .14); border-radius: 5px; outline: none; font-size: 11px; }
-input:focus { border-color: rgba(78, 213, 208, .65); box-shadow: 0 0 0 3px rgba(78, 213, 208, .08); }
+input, select { width: 100%; padding: 9px 10px; color: #e7edf3; background: #0b1219; border: 1px solid rgba(210, 226, 235, .14); border-radius: 5px; outline: none; font-size: 11px; }
+input:focus, select:focus { border-color: rgba(78, 213, 208, .65); box-shadow: 0 0 0 3px rgba(78, 213, 208, .08); }
+select { appearance: none; background-image: linear-gradient(45deg, transparent 50%, #4ed5d0 50%), linear-gradient(135deg, #4ed5d0 50%, transparent 50%); background-position: calc(100% - 14px) 13px, calc(100% - 10px) 13px; background-size: 4px 4px, 4px 4px; background-repeat: no-repeat; padding-right: 28px; }
 .upload-zone { position: relative; align-items: center; justify-items: center; min-height: 88px; padding: 12px; border: 1px dashed rgba(78, 213, 208, .34); border-radius: 7px; background: rgba(78, 213, 208, .035); text-align: center; cursor: pointer; }
 .upload-zone input { position: absolute; inset: 0; opacity: 0; cursor: pointer; }
 .upload-zone strong { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: #c9d5d9; font-size: 11px; }
