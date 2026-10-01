@@ -65,6 +65,120 @@ def _size_for(opts: RenderOptions) -> Tuple[float, float]:
     return LAYOUT_PRESETS["A4_landscape"]
 
 
+def _repair_none_insert_text(msp) -> int:
+    """In-place repair for TEXT / MTEXT / ATTRIB entities whose ``dxf.insert``
+    is ``None`` — the exact failure mode hit by
+    ``ezdxf.addons.drawing.text._get_wcs_insert`` which raises
+    ``TypeError: object of type 'NoneType' has no len()``.
+
+    Strategy: prefer ``align_point`` or a fallback OCS-derived location, else
+    drop the entity. Returns the number of repaired / dropped entities as a
+    signed tuple delta (repaired, dropped).
+    """
+    repaired = 0
+    dropped = 0
+    TEXTY = {"TEXT", "MTEXT", "ATTRIB", "ATTDEF"}
+    for entity in list(msp):
+        try:
+            etype = entity.dxftype()
+        except Exception:
+            msp.delete_entity(entity)
+            dropped += 1
+            continue
+        if etype not in TEXTY:
+            continue
+        insert = None
+        try:
+            insert = entity.dxf.insert
+        except Exception:
+            insert = None
+        if insert is not None:
+            continue
+        # Try align_point first (many real-world DXF writers populate only
+        # this field when alignment != left/baseline).
+        alt = None
+        try:
+            alt = entity.dxf.align_point
+        except Exception:
+            alt = None
+        if alt is None:
+            # Try any vertex-like field we can pull.
+            for field in ("insert2", "text_align_point", "location",
+                          "extrusion", "normal"):
+                try:
+                    v = getattr(entity.dxf, field, None)
+                    if v is not None:
+                        alt = v
+                        break
+                except Exception:
+                    pass
+        if alt is None:
+            # As a last-ditch, if there's any bounding info attached, use
+            # its center. Otherwise drop the entity.
+            try:
+                ext = entity.extents()
+                if ext is not None and ext[0] is not None and ext[1] is not None:
+                    alt = tuple((a + b) / 2 for a, b in zip(ext[0], ext[1]))
+            except Exception:
+                alt = None
+        if alt is None:
+            try:
+                msp.delete_entity(entity)
+                dropped += 1
+            except Exception:
+                pass
+            continue
+        try:
+            entity.dxf.insert = alt
+            repaired += 1
+        except Exception:
+            try:
+                msp.delete_entity(entity)
+                dropped += 1
+            except Exception:
+                pass
+    return repaired, dropped
+
+
+def _safe_draw_frontend(context, out, cfg, msp) -> Tuple[int, int, List[str]]:
+    """Draw every modelspace entity one-by-one, never letting a single rogue
+    entity poison the entire page. Returns ``(rendered_count, skipped_count,
+    skipped_types)``.
+    """
+    rendered = 0
+    skipped = 0
+    skipped_types: List[str] = []
+    entities = list(msp)
+    # Attempt bulk draw first for the common fast path.
+    try:
+        frontend = Frontend(context, out, config=cfg)
+        frontend.draw_layout(msp, finalize=True)
+        return len(entities), 0, []
+    except Exception:
+        pass
+    # Fallback: entity-by-entity with filter_func skipping bad actors.
+    for idx, entity in enumerate(entities):
+        etype = "?"
+        try:
+            etype = entity.dxftype()
+        except Exception:
+            etype = "<unknown>"
+        def _filter(e, _target=entity):
+            try:
+                return e is _target
+            except Exception:
+                return False
+        try:
+            frontend = Frontend(context, out, config=cfg)
+            frontend.draw_entities([entity])
+            rendered += 1
+        except Exception:
+            skipped += 1
+            if len(skipped_types) < 10:
+                skipped_types.append(f"{etype}#{idx}")
+    return rendered, skipped, skipped_types
+
+
 # ---------------------------------------------------------------------------
 # Single DXF → single PDF
 # ---------------------------------------------------------------------------
@@ -125,6 +239,17 @@ def convert_dxf_to_pdf(
         logger.warning("DXF %s has empty modelspace — rendering empty page.",
                        dxf_path.name)
 
+    msp = doc.modelspace()
+    try:
+        total_entities = len(list(msp))
+    except Exception:
+        total_entities = 0
+
+    repaired, dropped = _repair_none_insert_text(msp)
+    if repaired or dropped:
+        logger.warning("TEXT None-insert repair on %s: repaired=%s dropped=%s",
+                       dxf_path.name, repaired, dropped)
+
     try:
         context = RenderContext(doc)
     except Exception as exc:  # pragma: no cover - fallback
@@ -145,17 +270,29 @@ def convert_dxf_to_pdf(
     ax = fig.add_axes([0.02, 0.02 + (0.06 if opts.show_title else 0.0),
                        0.96, 0.96 - (0.06 if opts.show_title else 0.0)])
 
+    render_stats = (0, 0, [])
     try:
         out = matplotlib.MatplotlibBackend(ax)
-        Frontend(context, out, config=cfg).draw_layout(
-            doc.modelspace(),
-            finalize=True,
-        )
+        render_stats = _safe_draw_frontend(context, out, cfg, msp)
+        try:
+            ax.relim(visible_only=True)
+            ax.autoscale_view()
+            ax.set_aspect("equal", adjustable="datalim")
+        except Exception as exc:
+            logger.warning("Autoscale failed on %s: %s", dxf_path.name, exc)
+        try:
+            ax.figure.canvas.draw()
+        except Exception:
+            pass
     except Exception as exc:
         logger.warning("Render failed for %s: %s", dxf_path.name, exc)
         ax.text(0.5, 0.5, f"[render failed: {exc}]", ha="center", va="center",
                 transform=ax.transAxes, fontsize=opts.title_fontsize,
                 color="darkred")
+        try:
+            ax.figure.canvas.draw()
+        except Exception:
+            pass
 
     if opts.show_title:
         title = page_title or dxf_path.stem
@@ -172,6 +309,17 @@ def convert_dxf_to_pdf(
             spine.set_visible(False)
     ax.set_xticks([])
     ax.set_yticks([])
+
+    rendered_count, skipped_count, skipped_types = render_stats
+    footer = (
+        f"entities={total_entities}  rendered={rendered_count}"
+        f"  skipped={skipped_count}"
+        f"  text-repairs(r/d)=({repaired}/{dropped})"
+    )
+    if skipped_types:
+        footer += f"  bad={','.join(skipped_types)}"
+    fig.text(0.02, 0.005, footer, ha="left", va="bottom",
+             fontsize=opts.title_fontsize * 0.7, color="#555")
 
     with PdfPages(str(pdf_path)) as pdf:
         pdf.savefig(fig, dpi=opts.dpi, facecolor=fig.get_facecolor())
@@ -261,28 +409,60 @@ def bundle_drawings_to_pdf(
                              facecolor=opts.facecolor)
             ax = fig.add_axes([0.02, 0.04, 0.96, 0.90])
 
+            msp = doc.modelspace()
+            try:
+                total_entities = len(list(msp))
+            except Exception:
+                total_entities = 0
+            repaired, dropped = _repair_none_insert_text(msp)
+            if repaired or dropped:
+                logger.warning(
+                    "TEXT None-insert repair on %s: repaired=%s dropped=%s",
+                    dxf_path.name, repaired, dropped)
+
             try:
                 context = RenderContext(doc)
             except Exception:
                 context = RenderContext.new(doc)
+            render_stats = (0, 0, [])
             try:
                 out = ez_matplotlib.MatplotlibBackend(ax)
-                Frontend(context, out, config=cfg).draw_layout(
-                    doc.modelspace(), finalize=True
-                )
+                render_stats = _safe_draw_frontend(context, out, cfg, msp)
+                try:
+                    ax.relim(visible_only=True)
+                    ax.autoscale_view()
+                    ax.set_aspect("equal", adjustable="datalim")
+                except Exception as exc:
+                    logger.warning("Autoscale failed on %s: %s",
+                                   dxf_path.name, exc)
+                try:
+                    ax.figure.canvas.draw()
+                except Exception:
+                    pass
             except Exception as exc:
                 logger.warning("Render failed for %s: %s", dxf_path.name, exc)
                 ax.text(0.5, 0.5, f"[render failed: {exc}]",
                         ha="center", va="center",
                         transform=ax.transAxes,
                         fontsize=opts.title_fontsize, color="darkred")
+                try:
+                    ax.figure.canvas.draw()
+                except Exception:
+                    pass
 
             title = titles[idx - 1] or dxf_path.stem
             fig.text(0.5, 0.97, f"Sheet {idx}/{len(dxf_paths)}  —  {title}",
                      ha="center", va="top", fontsize=opts.title_fontsize,
                      fontweight="bold")
             footer_right = f"{pdf_path.stem}"
-            footer_left = dxf_path.name
+            rendered_count, skipped_count, skipped_types = render_stats
+            footer_left = (
+                f"{dxf_path.name}   ent={total_entities}"
+                f" ren={rendered_count} skip={skipped_count}"
+                f" txt-repair(r/d)=({repaired}/{dropped})"
+            )
+            if skipped_types:
+                footer_left += f" bad={','.join(skipped_types)}"
             fig.text(0.02, 0.01, footer_left, ha="left", va="bottom",
                      fontsize=opts.title_fontsize * 0.75, color="0.3")
             fig.text(0.98, 0.01, footer_right, ha="right", va="bottom",

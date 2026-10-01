@@ -569,6 +569,19 @@ with st.sidebar:
         help="Select default output file format",
     )
 
+    drawing_standard = st.radio(
+        "Drawing Standard",
+        ["Modern / Generic", "PMGSY 2-Sheet Minor Bridge"],
+        help=(
+            "Modern = flexible single-sheet or 4/7/11-sheet package with generic "
+            "title block.  PMGSY 2-Sheet = Civil 3D 2016 minor bridge layout "
+            "(Sect Elev + Plan on Sheet 1, Sections + Soil Profile + Schedule + "
+            "13 NOTES on Sheet 2; bearing = TAR PAPER; live load Class A-3/70R+A; "
+            "scour IRC-78; weep holes 100 @ 1000c/c)."
+        ),
+        key="drawing_standard_radio",
+    )
+
     st.markdown('<p class="section-title">📡 System Status</p>', unsafe_allow_html=True)
     st.markdown("""
     <div style="font-size:0.78rem; color:#8b949e; line-height:2;">
@@ -756,22 +769,84 @@ with tab1:
                             f.write(uploaded_file.getbuffer())
 
                         gen = BridgeGADGenerator(acad_version=acad_version)
-                        output_file = temp_path / f"bridge_gad.{export_format}"
 
-                        if gen.generate_complete_drawing(excel_path, output_file):
-                            st.success("✅ Drawing generated successfully!")
-                            file_size = output_file.stat().st_size / 1024
-                            st.markdown(f"""
-                            <div class="glass-card" style="display:flex;align-items:center;gap:1rem;">
-                                <span style="font-size:2rem;">📁</span>
-                                <div>
-                                    <div style="color:#00d4ff;font-weight:700;">bridge_gad.{export_format}</div>
-                                    <div style="color:#8b949e;font-size:0.8rem;">{file_size:.1f} KB &nbsp;·&nbsp; {acad_version}</div>
+                        # ── PMGSY route: produce 2-sheet ZIP (Sheet 01 OF 02 + Sheet 02 OF 02)
+                        is_pmgsy = (drawing_standard == "PMGSY 2-Sheet Minor Bridge")
+                        if is_pmgsy:
+                            try:
+                                from bridge_gad.bridge_canvas_features import (
+                                    make_phase_two_package_zip,
+                                )
+                                from bridge_gad.io_utils import (
+                                    read_input_excel,
+                                )
+                                # Read variables from uploaded Excel to merge with
+                                # pmgsy_7x9 defaults (user sheet wins on overlap)
+                                _raw = read_input_excel(str(excel_path))
+                                _user_vars: Dict[str, Any] = {}
+                                for _r in _raw.itertuples(index=False):
+                                    if len(_r) < 2:
+                                        continue
+                                    _v, _k = _r[0], _r[1]
+                                    if _k in ("Variable", None, "") or pd.isna(_k):
+                                        continue
+                                    _user_vars[str(_k)] = _v
+                                # Prefer pmgsy_7x9 template baseline, then overlay user file
+                                _tmpl = BC_TEMPLATES.get("pmgsy_7x9", {}).get("parameters", {})
+                                _merged = dict(_tmpl)
+                                _merged.update(_user_vars) if hasattr(_merged, "update") else None
+                                _pkg_bytes = make_phase_two_package_zip(_merged)
+                                st.success("✅ PMGSY 2-Sheet Package generated successfully!")
+                                _download_label = "📦 Download PMGSY 2-Sheet Package (ZIP)"
+                                _download_bytes = _pkg_bytes
+                                _download_name = (
+                                    f"01-GAD-AT-CH-{_merged.get('PROJECT_CODE', 'XXXX')}-7X9-0"
+                                    f"_PMGSY_package.zip"
+                                )
+                                _download_mime = "application/zip"
+                                _file_size_kb = len(_pkg_bytes) / 1024
+                                _display_name = Path(_download_name).name
+                                st.session_state.history.append({
+                                    "type": "PMGSY Package",
+                                    "name": uploaded_file.name,
+                                    "date": datetime.now().strftime("%Y-%m-%d %H:%M"),
+                                    "format": "ZIP (2 sheets)",
+                                    "size": _file_size_kb,
+                                })
+                                # Store merged params for downstream tabs
+                                try:
+                                    from bridge_gad.calc_engine import CalcEngine
+                                    _eng = CalcEngine.with_bridge_defaults()
+                                    _eng.load(_merged)
+                                    st.session_state.last_params = _eng.recalculate()
+                                except Exception:
+                                    st.session_state.last_params = dict(_merged)
+                            except Exception as _pge:
+                                st.warning(
+                                    f"PMGSY package route fell back to single sheet "
+                                    f"({_pge.__class__.__name__}: {_pge}).  Reverting to "
+                                    "generic generator."
+                                )
+                                is_pmgsy = False
+
+                        if not is_pmgsy:
+                            # ── Generic / Modern route ───────────────────────────────
+                            output_file = temp_path / f"bridge_gad.{export_format}"
+                            if gen.generate_complete_drawing(excel_path, output_file):
+                                st.success("✅ Drawing generated successfully!")
+                                _file_size_kb = output_file.stat().st_size / 1024
+                                st.markdown(f"""
+                                <div class="glass-card" style="display:flex;align-items:center;gap:1rem;">
+                                    <span style="font-size:2rem;">📁</span>
+                                    <div>
+                                        <div style="color:#00d4ff;font-weight:700;">bridge_gad.{export_format}</div>
+                                        <div style="color:#8b949e;font-size:0.8rem;">{_file_size_kb:.1f} KB &nbsp;·&nbsp; {acad_version}</div>
+                                    </div>
                                 </div>
-                            </div>
-                            """, unsafe_allow_html=True)
+                                """, unsafe_allow_html=True)
 
-                            with open(output_file, "rb") as f:
+                                with open(output_file, "rb") as f:
+                                    _file_bytes = f.read()
                                 _mime_map = {
                                     "dxf": "application/dxf",
                                     "pdf": "application/pdf",
@@ -781,40 +856,52 @@ with tab1:
                                     "csv": "text/csv",
                                     "html": "text/html",
                                 }
-                                st.download_button(
-                                    label=f"⬇️ Download {export_format.upper()}",
-                                    data=f.read(),
-                                    file_name=f"bridge_drawing.{export_format}",
-                                    mime=_mime_map.get(export_format, "application/octet-stream"),
-                                )
+                                _download_label = f"⬇️ Download {export_format.upper()}"
+                                _download_bytes = _file_bytes
+                                _download_name = f"bridge_drawing.{export_format}"
+                                _download_mime = _mime_map.get(export_format, "application/octet-stream")
+                                _display_name = _download_name
 
-                            st.session_state.history.append({
-                                "type": "Drawing",
-                                "name": uploaded_file.name,
-                                "date": datetime.now().strftime("%Y-%m-%d %H:%M"),
-                                "format": export_format,
-                                "size": file_size,
-                            })
-                            # Phase 6: store params for CalcEngine / Quality / 3D tabs
-                            try:
-                                from bridge_gad.calc_engine import CalcEngine
-                                _engine = CalcEngine.with_bridge_defaults()
-                                _engine.load(gen.variables if hasattr(gen, "variables") else {})
-                                _calc = _engine.recalculate()
-                                st.session_state.last_params = _calc
-                            except Exception:
-                                st.session_state.last_params = getattr(gen, "variables", {})
-                            # BridgeCanvas DXF cleanup — remove orphan/degenerate entities
-                            try:
-                                _cleanup = cleanup_dxf_entities(gen.doc)
-                                _total_cleaned = sum(_cleanup.values())
-                                if _total_cleaned:
-                                    st.caption(f"🧹 Cleaned {_total_cleaned} degenerate entities from DXF")
-                            except Exception:
-                                pass
+                                st.session_state.history.append({
+                                    "type": "Drawing",
+                                    "name": uploaded_file.name,
+                                    "date": datetime.now().strftime("%Y-%m-%d %H:%M"),
+                                    "format": export_format,
+                                    "size": _file_size_kb,
+                                })
+                                # Phase 6: store params for CalcEngine / Quality / 3D tabs
+                                try:
+                                    from bridge_gad.calc_engine import CalcEngine
+                                    _engine = CalcEngine.with_bridge_defaults()
+                                    _engine.load(gen.variables if hasattr(gen, "variables") else {})
+                                    _calc = _engine.recalculate()
+                                    st.session_state.last_params = _calc
+                                except Exception:
+                                    st.session_state.last_params = getattr(gen, "variables", {})
+                                # BridgeCanvas DXF cleanup — remove orphan/degenerate entities
+                                try:
+                                    _cleanup = cleanup_dxf_entities(gen.doc)
+                                    _total_cleaned = sum(_cleanup.values())
+                                    if _total_cleaned:
+                                        st.caption(f"🧹 Cleaned {_total_cleaned} degenerate entities from DXF")
+                                except Exception:
+                                    pass
+                            else:
+                                st.error("❌ Failed to generate drawing")
+                                _download_bytes = None
+
+                        # Render the one and only download result (from either route)
+                        if not is_pmgsy and locals().get("_download_bytes") is None:
+                            pass  # failed above — already shown error
                         else:
-                            st.error("❌ Failed to generate drawing")
-
+                            st.download_button(
+                                label=_download_label,
+                                data=_download_bytes,
+                                file_name=_download_name,
+                                mime=_download_mime,
+                                type="primary",
+                                use_container_width=True,
+                            )
                 except Exception as e:
                     st.error(f"❌ Error: {str(e)}")
 

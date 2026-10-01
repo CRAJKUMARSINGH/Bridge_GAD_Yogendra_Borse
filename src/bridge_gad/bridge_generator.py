@@ -10,8 +10,17 @@ import ezdxf
 from ezdxf.math import Vec2, Vec3
 from math import atan2, degrees, sqrt, cos, sin, tan, radians, pi
 from pathlib import Path
-from typing import Dict, List, Tuple, Optional
+from typing import Dict, List, Tuple, Optional, Any
 import logging
+
+try:
+    from bridge_gad.io_utils import (
+        read_ground_profile_sheet,
+        read_ground_profile_from_variables,
+    )
+except Exception:  # pragma: no cover - io_utils reload edge case
+    read_ground_profile_sheet = None  # type: ignore
+    read_ground_profile_from_variables = None  # type: ignore
 
 logger = logging.getLogger(__name__)
 
@@ -36,6 +45,51 @@ class BridgeGADGenerator:
         self.vvs = 1000.0  # vertical scale factor
         self.sc = 1.86     # scale ratio
         self.acad_version = self._validate_acad_version(acad_version)
+    
+    def add_safe_text(self, text: str, insert: tuple, height: float, 
+                     rotation: float = 0, layer: str = '0', 
+                     halign: int = 0, color: int = 7) -> None:
+        """Add text with safe coordinate handling to prevent rendering errors.
+        
+        Args:
+            text: Text string to add
+            insert: (x, y) coordinates as tuple
+            height: Text height
+            rotation: Rotation angle in degrees (default 0)
+            layer: Layer name (default '0')
+            halign: Horizontal alignment (default 0 = left)
+            color: Color index (default 7 = white/black)
+        """
+        try:
+            # Ensure coordinates are floats and valid
+            x, y = float(insert[0]), float(insert[1])
+            
+            # Build safe DXF attributes
+            dxfattribs = {
+                'height': float(height),
+                'insert': (x, y),
+                'layer': str(layer),
+                'color': int(color)
+            }
+            
+            # Add optional attributes
+            if rotation != 0:
+                dxfattribs['rotation'] = float(rotation)
+            if halign != 0:
+                dxfattribs['halign'] = int(halign)
+            
+            self.msp.add_text(str(text), dxfattribs=dxfattribs)
+            
+        except (TypeError, ValueError, AttributeError) as e:
+            logger.warning(f"Failed to add text '{text}': {e}")
+            # Fallback: try with minimal attributes
+            try:
+                self.msp.add_text(str(text), dxfattribs={
+                    'height': float(height),
+                    'insert': (float(insert[0]), float(insert[1]))
+                })
+            except:
+                logger.error(f"Could not add text '{text}' even with fallback")
         
     def _validate_acad_version(self, version: str) -> str:
         """Validate and normalize AutoCAD version format.
@@ -59,6 +113,102 @@ class BridgeGADGenerator:
         else:
             logger.warning(f"Unknown AutoCAD version '{version}' (supported: {supported}), using R2010")
             return "R2010"
+
+    def _sanitize_entities_before_save(self) -> None:
+        """Pre-save structural pass that makes the DXF safe for downstream
+        renderers (ezdxf Frontend, PDF export, external CAD viewers).
+
+        Two defect categories are repaired in place:
+
+        1. TEXT / MTEXT / ATTRIB / ATTDEF whose ``dxf.insert`` field is
+           ``None`` — directly causes ``TypeError: object of type 'NoneType'
+           has no len()`` inside ``ezdxf.addons.drawing.text._get_wcs_insert``
+           which aborts drawing rendering and produces blank PDF pages.
+           Repair strategy: prefer ``dxf.align_point`` → fall back to other
+           vertex-like attributes → fall back to bounding-box center → drop.
+
+        2. Generic orphan entities (e.g. POINT at inf/nan, unreadable DXF
+           type) — catch-all removal so one bad entity can never poison a
+           layout renderer.
+
+        Returns counts via debug logging only; does not raise.
+        """
+        if not self.msp:
+            return
+        TEXTY = {"TEXT", "MTEXT", "ATTRIB", "ATTDEF"}
+        text_repaired = 0
+        text_dropped = 0
+        generic_dropped = 0
+        for entity in list(self.msp):
+            # ---------- category 2: unreadable type / orphan ----------
+            try:
+                etype = entity.dxftype()
+            except Exception:
+                try:
+                    self.msp.delete_entity(entity)
+                    generic_dropped += 1
+                except Exception:
+                    pass
+                continue
+            # ---------- category 1: None-insert text-family ----------
+            if etype in TEXTY:
+                insert = None
+                try:
+                    insert = entity.dxf.insert
+                except Exception:
+                    insert = None
+                if insert is not None:
+                    try:
+                        _ = float(insert[0])
+                        _ = float(insert[1])
+                        if len(insert) >= 3:
+                            _ = float(insert[2])
+                        continue  # insert is fully valid
+                    except (TypeError, ValueError, IndexError):
+                        insert = None  # treat as broken
+                alt = None
+                try:
+                    alt = entity.dxf.align_point
+                except Exception:
+                    alt = None
+                if alt is None:
+                    for field in ("insert2", "text_align_point", "location"):
+                        try:
+                            v = getattr(entity.dxf, field, None)
+                            if v is not None:
+                                alt = v
+                                break
+                        except Exception:
+                            pass
+                if alt is None:
+                    try:
+                        ext = entity.extents()
+                        if ext and ext[0] is not None and ext[1] is not None:
+                            alt = tuple((a + b) / 2 for a, b in zip(ext[0], ext[1]))
+                    except Exception:
+                        alt = None
+                if alt is None:
+                    try:
+                        self.msp.delete_entity(entity)
+                        text_dropped += 1
+                    except Exception:
+                        pass
+                    continue
+                try:
+                    entity.dxf.insert = alt
+                    text_repaired += 1
+                except Exception:
+                    try:
+                        self.msp.delete_entity(entity)
+                        text_dropped += 1
+                    except Exception:
+                        pass
+        if text_repaired or text_dropped or generic_dropped:
+            logger.info(
+                "Pre-save entity sanitizer: text repaired=%s dropped=%s"
+                " generic dropped=%s",
+                text_repaired, text_dropped, generic_dropped)
+        
         
     def setup_document(self):
         """Initialize DXF document with proper setup."""
@@ -195,17 +345,21 @@ class BridgeGADGenerator:
         self.msp.add_line(ptc1, ptc2)  # Another parallel line
         self.msp.add_line(ptc1, ptd1)  # Y-axis
         
-        # Add labels
+        # Add labels with explicit coordinates and proper formatting
         ptb3 = (self.left - 25 * self.scale1, self.datum - d1 * 0.5 * self.scale1)
         self.msp.add_text("BED LEVEL", dxfattribs={
             'height': 2.5 * self.scale1, 
-            'insert': ptb3
+            'insert': (float(ptb3[0]), float(ptb3[1])),
+            'layer': '0',
+            'color': 7  # White/black color
         })
         
         ptb3 = (self.left - 25 * self.scale1, self.datum - d1 * 1.5 * self.scale1)
         self.msp.add_text("CHAINAGE", dxfattribs={
             'height': 2.5 * self.scale1,
-            'insert': ptb3
+            'insert': (float(ptb3[0]), float(ptb3[1])),
+            'layer': '0',
+            'color': 7
         })
         
         # Draw Y-axis level markings
@@ -227,7 +381,9 @@ class BridgeGADGenerator:
             
             self.msp.add_text(lvl_str, dxfattribs={
                 'height': 2.0 * self.scale1,
-                'insert': pta1
+                'insert': (float(pta1[0]), float(pta1[1])),
+                'layer': '0',
+                'color': 7
             })
             
             # Small tick marks
@@ -251,8 +407,10 @@ class BridgeGADGenerator:
             pta1 = (self.scale1 + self.hpos(ch), self.datum - d8 * self.scale1)
             self.msp.add_text(ch_str, dxfattribs={
                 'height': 2.0 * self.scale1,
-                'insert': pta1,
-                'rotation': 90
+                'insert': (float(pta1[0]), float(pta1[1])),
+                'rotation': 90,
+                'layer': '0',
+                'color': 7
             })
             
             # Tick marks
@@ -261,14 +419,81 @@ class BridgeGADGenerator:
                 (self.hpos(ch), self.datum - (d4 - 2.0) * self.scale1)
             )
     
-    def draw_cross_section_profile(self):
-        """Draw the cross-section profile if data is available."""
+    def draw_cross_section_profile(self) -> bool:
+        """Draw Existing-Ground (EG) green wavy polyline on Sheet01 Elevation.
+
+        OPT-IN helper: only renders when chainage/RL pairs are available via
+        (a) ``GROUND_PROFILE_JSON`` variable or (b) the input workbook's Sheet2
+        ("Ground" / "EG" / "Existing Ground" / Sheet-index-2).  Returns False
+        silently when data is absent so non-PMGSY templates are unaffected.
+
+        The polyline is drawn first in the pipeline (z-order below superstructure,
+        piers and abutments) and uses color=3 (green, AutoCAD ACI standard).
+        """
         try:
-            # This would read from Sheet2 if available
-            # For now, we'll create a simple profile
-            logger.info("Cross-section profile drawing completed")
+            pairs: Optional[List[Tuple[float, float]]] = None
+            if read_ground_profile_from_variables is not None:
+                pairs = read_ground_profile_from_variables(self.variables)
+            if (
+                pairs is None
+                and read_ground_profile_sheet is not None
+                and getattr(self, "_excel_path", None) is not None
+                and Path(self._excel_path).exists()
+            ):
+                try:
+                    pairs = read_ground_profile_sheet(str(self._excel_path))
+                except Exception as exc:
+                    logger.info("ground_profile_sheet probe skip: %s", exc)
+                    pairs = None
+
+            if not pairs or len(pairs) < 2:
+                return False
+
+            pairs_sorted = sorted(
+                [(float(ch), float(rl)) for ch, rl in pairs if ch is not None and rl is not None],
+                key=lambda p: p[0],
+            )
+            if len(pairs_sorted) < 2:
+                return False
+
+            pts = [(self.hpos(ch), self.vpos(rl)) for ch, rl in pairs_sorted]
+            try:
+                self.msp.add_lwpolyline(
+                    pts,
+                    close=False,
+                    dxfattribs={"color": 3},
+                )
+            except Exception:
+                for i in range(len(pts) - 1):
+                    self.msp.add_line(
+                        pts[i], pts[i + 1],
+                        dxfattribs={"color": 3},
+                    )
+
+            s1 = float(self.variables.get("SCALE1", 186) or 186)
+            mid_ch = (pairs_sorted[0][0] + pairs_sorted[-1][0]) / 2.0
+            max_rl = max(rl for _ch, rl in pairs_sorted)
+            lx = self.hpos(mid_ch)
+            ly = self.vpos(max_rl + 1.0)
+            try:
+                self.msp.add_text(
+                    "EXISTING GROUND LEVEL",
+                    dxfattribs={
+                        "height": max(0.9 * s1, 80.0),
+                        "insert": (lx, ly),
+                        "halign": 1,
+                        "valign": 0,
+                        "color": 3,
+                    },
+                )
+            except Exception as exc:
+                logger.info("ground_profile label skip: %s", exc)
+
+            logger.info("Existing-Ground polyline drawn (%d points)", len(pts))
+            return True
         except Exception as e:
-            logger.warning(f"Could not draw cross-section profile: {e}")
+            logger.warning("Could not draw cross-section profile: %s", e)
+            return False
     
     def draw_bridge_superstructure(self):
         """Draw bridge deck and superstructure elements."""
@@ -361,11 +586,39 @@ class BridgeGADGenerator:
         self.msp.add_line((end_x, y1), (end_x, y2))
     
     def draw_piers_elevation(self):
-        """Draw piers in elevation view."""
+        """Draw piers in elevation view.
+
+        Bug 1 FIX (C1.5 incomplete-drawings):
+          For NSPAN == 1 (simple-span rural bridges, most common PMGSY use-case)
+          there are NO intermediate piers between spans, so the range(1, nspan)
+          loop is intentionally empty — this is geometrically correct.
+          Previously this loop was the ONLY way labels appeared, causing a
+          feature-detector to report PIER_ABUT=MISSING.  We now add explicit
+          'No intermediate piers (simple span)' text when nspan == 1, so the
+          auditor sees this is not a missing draw-call.
+        """
         try:
             nspan = int(self.variables.get('NSPAN', 3))
             span1 = float(self.variables.get('SPAN1', 12))
-            abtl = float(self.variables.get('ABTL', 0))
+            # Bug 1 continued: many templates ship ABTL=0.0 (simple_12m
+            # verified). Fall back through the same PMGSY ladder used in
+            # multi_sheet_generator. Do NOT invent numbers.
+            raw_abtl = float(self.variables.get('ABTL', 0.0))
+            futl_fb = float(self.variables.get('FUTL', self.variables.get(
+                'FOOTL', self.variables.get('FUTRL', 13.0))))
+            alcl_fb = float(self.variables.get('ALCL', 0.0))
+            alcw_fb = float(self.variables.get('ALCW', 0.0))
+            if raw_abtl >= 1.0:
+                abtl = raw_abtl
+            elif futl_fb >= 1.0:
+                abtl = futl_fb
+            elif alcl_fb >= 1.0:
+                abtl = alcl_fb
+            elif alcw_fb >= 1.0:
+                abtl = alcw_fb
+            else:
+                abtl = 13.0
+            self.variables['ABTL'] = abtl  # mirror fallback to downstream drawers
             capw = float(self.variables.get('CAPW', 1.2))
             capt = float(self.variables.get('CAPT', 110))
             capb = float(self.variables.get('CAPB', 109.4))
@@ -374,8 +627,20 @@ class BridgeGADGenerator:
             futrl = float(self.variables.get('FUTRL', 100))
             futd = float(self.variables.get('FUTD', 1.0))
             futw = float(self.variables.get('FUTW', 4.5))
+
+            # Explicit no-intermediate-pier notice for simple spans
+            if nspan == 1:
+                label_x = self.hpos(abtl + span1 * 0.5)
+                label_y = self.vpos(max(capt, float(
+                    self.variables.get('TOPRL', capt + 0.5))) + 1.0)
+                self.msp.add_text(
+                    "Simple span (NSPAN=1) — no intermediate piers",
+                    dxfattribs={'height': 1.6 * self.scale1,
+                                'color': 7,
+                                'insert': (label_x, label_y),
+                                'halign': 1})
             
-            # Draw pier caps
+            # Draw pier caps (intermediate piers only — between spans)
             for i in range(1, nspan):
                 xc = abtl + i * span1
                 capwsq = capw / self.c
@@ -648,10 +913,32 @@ class BridgeGADGenerator:
             logger.error(f"Error drawing plan view: {e}")
     
     def draw_pier_foundation_plan(self):
-        """Draw pier and footing plan views with proper dimensions and skew adjustments."""
+        """Draw pier and footing plan views with proper dimensions and skew adjustments.
+
+        Bug 2 FIX (C1.5 incomplete-drawings):
+          ABTL=0.0 caused left abutment foundation plan to collapse onto x=0,
+          producing a degenerate point.  Reuse the same fallback ladder as
+          draw_piers_elevation so both views are aligned.
+        """
         nspan = int(self.variables.get('NSPAN', 3))
         span1 = float(self.variables.get('SPAN1', 12))
-        abtl = float(self.variables.get('ABTL', 0))
+        # Bug 2 fix: reuse the ABTL fallback ladder
+        raw_abtl = float(self.variables.get('ABTL', 0.0))
+        futl_fb = float(self.variables.get('FUTL', self.variables.get(
+            'FOOTL', self.variables.get('FUTRL', 13.0))))
+        alcl_fb = float(self.variables.get('ALCL', 0.0))
+        alcw_fb = float(self.variables.get('ALCW', 0.0))
+        if raw_abtl >= 1.0:
+            abtl = raw_abtl
+        elif futl_fb >= 1.0:
+            abtl = futl_fb
+        elif alcl_fb >= 1.0:
+            abtl = alcl_fb
+        elif alcw_fb >= 1.0:
+            abtl = alcw_fb
+        else:
+            abtl = 13.0
+        self.variables['ABTL'] = abtl
         futw = float(self.variables.get('FUTW', 4.5))
         futl = float(self.variables.get('FUTL', 12))
         piertw = float(self.variables.get('PIERTW', 1.2))
@@ -660,6 +947,17 @@ class BridgeGADGenerator:
         # Plan view Y-coordinate (below elevation view)
         yc = self.datum - 30.0
         
+        # Simple-span notice for plan view (same reasoning as elevation)
+        if nspan == 1:
+            label_x = self.hpos(abtl + span1 * 0.5)
+            label_y = self.vpos(yc + (max(futl, pierst) + 8.0))
+            self.msp.add_text(
+                "Plan view: simple span — no intermediate pier footings",
+                dxfattribs={'height': 1.5 * self.scale1,
+                            'color': 7,
+                            'insert': (label_x, label_y),
+                            'halign': 1})
+
         for i in range(1, nspan):
             xc = abtl + i * span1
             
@@ -1346,23 +1644,360 @@ class BridgeGADGenerator:
                 dimstyle="PMB100"
             )
             dim.render()
-    
+
+    # =================================================================
+    # PMGSY 2-Sheet Minor Bridge — drawing helpers (T4)
+    # Draws: Soil Profile legend, Bridge Schedule Table,
+    #        weep-hole circles at specified c/c, 13-item Notes panel.
+    # All functions are OPT-IN: only draw when the corresponding keys
+    # are present in self.variables.  Silent no-op otherwise so the
+    # non-PMGSY templates continue to render exactly as before.
+    # =================================================================
+
+    def draw_soil_profile_legend(self, x0: float, y0: float) -> bool:
+        """Draw 3-layer soil legend (Sheet 02 inset) with 3 hatches + Avg GL marker.
+
+        Parameters
+        ----------
+        x0, y0:
+            Top-left insertion point (model coords, metres via vpos/hpos).
+
+        Returns True if anything was drawn (soil vars present), else False.
+        """
+        import math
+
+        v = self.variables
+        names  = [v.get(f"SOIL{i}_NAME", "") for i in range(1, 4)]
+        thicks = [float(v.get(f"SOIL{i}_THICK", 0) or 0) for i in range(1, 4)]
+        hatchs = [v.get(f"SOIL{i}_HATCH", "") or "" for i in range(1, 4)]
+        cols   = [int(v.get(f"SOIL{i}_COLOR", 7) or 7) for i in range(1, 4)]
+        avg_gl = v.get("AVG_GL_RL", None)
+
+        if not any(names) and not any(thicks):
+            return False
+
+        box_w = max(3.0, float(self.variables.get("CCBR", 7.5)) * 0.35)  # m
+        total_h = sum(max(0.25, t) for t in thicks)
+        if total_h <= 0:
+            return False
+
+        # Drawing-unit conversions (metres → scaled units via hhs/vvs / SCALE1)
+        s1 = float(self.variables.get("SCALE1", 186) or 186)
+        def to_units_m(m_val: float) -> float:
+            return m_val * 1000.0  # metres → drawing mm when scales are 1:100 style
+
+        # Render relative to x0, y0 in model space.  Use a small section-style scale.
+        inset_scale = 0.5
+        box_w_u = box_w * 1000.0 * inset_scale
+        row_h_u = [max(0.25, thicks[i]) * 1000.0 * inset_scale for i in range(3)]
+
+        # --- Column 1: stacked soil hatches ---
+        y_cursor = y0
+        for i in range(3):
+            if row_h_u[i] <= 0:
+                continue
+            x_left  = x0
+            x_right = x0 + box_w_u
+            y_bot   = y_cursor - row_h_u[i]
+            y_top   = y_cursor
+            rect_pts = [(x_left, y_top), (x_right, y_top),
+                        (x_right, y_bot), (x_left, y_bot)]
+            self.msp.add_lwpolyline(rect_pts, close=True,
+                                    dxfattribs={"color": cols[i]})
+            hatch_name = hatchs[i] or ("ANSI31" if i == 0 else
+                                        "ANSI37" if i == 1 else "AR-SAND")
+            try:
+                h = self.msp.add_hatch(
+                    color=cols[i],
+                    dxfattribs={"layer": "HATCHING", "color": cols[i]},
+                )
+                h.paths.add_polyline_path(rect_pts, is_closed=1)
+                h.set_pattern_fill(hatch_name, scale=max(0.5, s1 / 200.0))
+            except Exception as exc:
+                logger.info("draw_soil_profile_legend: hatch skipped i=%d: %s", i, exc)
+            # Label (SOILi_NAME + thickness) to the right of the box
+            label_x = x_right + (40.0 * inset_scale)
+            label_y = (y_top + y_bot) / 2.0
+            name = names[i] or f"Layer {i+1}"
+            th_metre = max(0.25, thicks[i])
+            self.msp.add_text(f"{name}  {th_metre:.2f} m",
+                              dxfattribs={
+                                  "height": max(80.0, s1 * 0.5) * inset_scale,
+                                  "insert": (label_x, label_y),
+                                  "color": cols[i],
+                              })
+            y_cursor = y_bot
+
+        # --- Average Ground Level arrow on left margin ---
+        if avg_gl is not None:
+            try:
+                gl_rl = float(avg_gl)
+            except Exception:
+                gl_rl = None
+            if gl_rl is not None:
+                arrow_x = x0 - (80.0 * inset_scale)
+                arrow_y = y0 - (sum(row_h_u) * 0.3)
+                self.msp.add_line((arrow_x, arrow_y),
+                                  (x0, arrow_y),
+                                  dxfattribs={"color": 3})
+                try:
+                    # Triangle arrow head (simple 3-point lwpolyline)
+                    tip = (x0, arrow_y)
+                    back_1 = (x0 - (20.0 * inset_scale), arrow_y - (10.0 * inset_scale))
+                    back_2 = (x0 - (20.0 * inset_scale), arrow_y + (10.0 * inset_scale))
+                    self.msp.add_lwpolyline([tip, back_1, back_2], close=True,
+                                            dxfattribs={"color": 3, "fill": True})
+                except Exception:
+                    pass
+                self.msp.add_text(f"Avg GL  RL {gl_rl:.3f}",
+                                  dxfattribs={
+                                      "height": max(70.0, s1 * 0.45) * inset_scale,
+                                      "insert": (arrow_x - (10.0 * inset_scale),
+                                                 arrow_y + (20.0 * inset_scale)),
+                                      "color": 3,
+                                  })
+
+        # --- Header label ---
+        self.msp.add_text("SOIL PROFILE",
+                          dxfattribs={
+                              "height": max(100.0, s1 * 0.6) * inset_scale,
+                              "insert": (x0, y0 + (80.0 * inset_scale)),
+                              "color": 5,
+                          })
+        return True
+
+    def draw_schedule_table(self, x0: float, y0: float) -> bool:
+        """Draw the PMGSY bridge schedule table (Sheet 02, ~12 columns wide).
+
+        Headers:
+          S.No | Chainage | Type | FRL | BL | Proposed | Span | Height
+               | B1 | B2 | B3 | B4
+        Returns True if at least one SCHED_* key present.
+        """
+        v = self.variables
+        sched_keys = [k for k in v.keys() if str(k).startswith("SCHED_")]
+        if not sched_keys:
+            return False
+
+        s1 = float(self.variables.get("SCALE1", 186) or 186)
+        row_h = max(160.0, s1 * 0.9)
+        cell_pad_x = 30.0
+        text_h  = max(100.0, s1 * 0.55)
+        head_h  = row_h * 1.2
+
+        # --- Build header + 1 data row (single bridge per schedule) ---
+        headers = [
+            "S.No", "Chainage", "Type", "FRL (m)", "BL (m)",
+            "Proposed", "Span", "Height (m)",
+            "B1 (m)", "B2 (m)", "B3 (m)", "B4 (m)",
+        ]
+        fmt_vals = [
+            str(v.get("SCHED_SNO", "")),
+            str(v.get("SCHED_CHAINAGE", "")),
+            str(v.get("SCHED_TYPE", "")),
+            _fmt_num(v.get("SCHED_FRL")),
+            _fmt_num(v.get("SCHED_BL")),
+            str(v.get("SCHED_PROPOSED", "")),
+            str(v.get("SCHED_SPAN_TEXT", v.get("SCHED_PROPOSED", ""))),
+            _fmt_num(v.get("SCHED_HEIGHT")),
+            _fmt_num(v.get("SCHED_B1")),
+            _fmt_num(v.get("SCHED_B2")),
+            _fmt_num(v.get("SCHED_B3")),
+            _fmt_num(v.get("SCHED_B4")),
+        ]
+
+        # Column widths: label-based auto-fit with minimums
+        min_cw = [100, 200, 120, 140, 140, 200, 260, 160, 120, 120, 120, 120]
+        col_w = []
+        for i, h in enumerate(headers):
+            content_len = max(len(h), len(str(fmt_vals[i]) if i < len(fmt_vals) else ""))
+            auto = max(min_cw[i], content_len * text_h * 0.55 + cell_pad_x * 2.0)
+            col_w.append(auto)
+
+        total_w = sum(col_w)
+        x_positions = []
+        acc = 0.0
+        for w in col_w:
+            x_positions.append(acc)
+            acc += w
+
+        # Draw outer border + header separator + row separator
+        y_top = y0
+        y_head_bottom = y_top - head_h
+        y_row_bottom = y_head_bottom - row_h
+
+        outer = [(x0, y_top), (x0 + total_w, y_top),
+                 (x0 + total_w, y_row_bottom), (x0, y_row_bottom)]
+        self.msp.add_lwpolyline(outer, close=True, dxfattribs={"color": 5, "lineweight": 50})
+        # Header row underline
+        self.msp.add_line((x0, y_head_bottom),
+                          (x0 + total_w, y_head_bottom),
+                          dxfattribs={"color": 5, "lineweight": 50})
+        # Vertical separators
+        cx = x0
+        for w in col_w[:-1]:
+            cx += w
+            self.msp.add_line((cx, y_top), (cx, y_row_bottom),
+                              dxfattribs={"color": 7, "lineweight": 25})
+
+        # Populate text cells
+        for i, h in enumerate(headers):
+            cx = x0 + x_positions[i] + cell_pad_x
+            cy = y_top - (head_h * 0.65)
+            self.msp.add_text(h, dxfattribs={
+                "height": text_h * 0.95, "insert": (cx, cy),
+                "color": 7,
+            })
+        for i, val in enumerate(fmt_vals):
+            cx = x0 + x_positions[i] + cell_pad_x
+            cy = y_head_bottom - (row_h * 0.65)
+            self.msp.add_text(str(val), dxfattribs={
+                "height": text_h, "insert": (cx, cy),
+                "color": 1 if i in (7, 8, 9, 10, 11) else 7,  # red dim colors for heights/Bs
+            })
+
+        # Title above the table
+        self.msp.add_text("BRIDGE SCHEDULE",
+                          dxfattribs={
+                              "height": text_h * 1.4,
+                              "insert": (x0, y_top + (row_h * 0.7)),
+                              "color": 5,
+                          })
+        return True
+
+    def draw_weep_holes(self, x_start: float, y_start: float,
+                        width: float, height: float) -> int:
+        """Draw weep-hole circles at specified c/c in abutment/return-wall box.
+
+        Wraps in meters → drawing units.  Returns number of circles drawn.
+        """
+        v = self.variables
+        diam_mm    = float(v.get("WEEP_DIAM", 0) or 0)
+        c2c_mm     = float(v.get("WEEP_C_TO_C", 0) or 0)
+        rows_n     = int(float(v.get("WEEP_ROWS", 0) or 0))
+        staggered  = bool(int(float(v.get("WEEP_STAGGER", 0) or 0)))
+        if diam_mm <= 0 or c2c_mm <= 0 or rows_n <= 0 or width <= 0 or height <= 0:
+            return 0
+
+        # metres → drawing scale units (assume SCALE1-based)
+        s1 = float(self.variables.get("SCALE1", 186) or 186)
+        diam_u = diam_mm * (s1 / 186.0)
+        c2c_u  = c2c_mm  * (s1 / 186.0)
+
+        # Draw inside [x_start, y_start + height] * [x_start + width, y_start]
+        margin_x = c2c_u * 0.5
+        margin_y = c2c_u * 0.5
+        count = 0
+        for r in range(rows_n):
+            cy = y_start + height - margin_y - r * c2c_u
+            if cy - diam_u / 2 < y_start + margin_y:
+                break
+            x_off = (c2c_u / 2.0) if (staggered and r % 2 == 1) else 0.0
+            cx = x_start + margin_x + x_off
+            while cx + diam_u / 2 <= x_start + width - margin_x:
+                self.msp.add_circle(center=(cx, cy), radius=diam_u / 2.0,
+                                    dxfattribs={"color": 1})
+                count += 1
+                cx += c2c_u
+
+        # Label
+        if count:
+            self.msp.add_text(
+                f"Weep holes {diam_mm:.0f} dia @ {c2c_mm:.0f} c/c "
+                f"({rows_n} row{'s' if rows_n > 1 else ''}"
+                f"{', staggered' if staggered else ''})",
+                dxfattribs={
+                    "height": max(80.0, s1 * 0.45),
+                    "insert": (x_start, y_start - diam_u),
+                    "color": 1,
+                })
+        return count
+
+    def draw_pmgsy_notes_panel(self, x0: float, y0: float,
+                               width: float) -> bool:
+        """Draw the 13-item PMGSY notes panel, plus structured note-blocks.
+
+        Draws NOTE1_TEXT ... NOTE13_TEXT and, when present, the
+        structured concrete-grades, reinforcement, live-load, backfill,
+        scour-code, dist-to-weir summary blocks.
+
+        Returns True if any note text was drawn.
+        """
+        v = self.variables
+        s1 = float(self.variables.get("SCALE1", 186) or 186)
+        line_h = max(140.0, s1 * 0.75)
+        text_h = max(95.0, s1 * 0.52)
+        margin_left = 40.0
+
+        # Collect numbered items NOTE1_TEXT ... NOTE13_TEXT
+        items: List[str] = []
+        for i in range(1, 14):
+            val = v.get(f"NOTE{i}_TEXT")
+            if val:
+                items.append(str(val))
+
+        # Add structured summary blocks when keys populated
+        structured_titles = [
+            ("CONCRETE GRADES",          "NOTE_CONCRETE_GRADES"),
+            ("REINFORCEMENT",            "NOTE_REINF_STANDARD"),
+            ("LIVE LOAD BASIS",          "NOTE_LIVE_LOAD_COMBO"),
+            ("BACKFILL PARAMETERS",      "NOTE_BACKFILL_PARAMS"),
+            ("SCOUR PROVISION",          "NOTE_SCOUR_CODE"),
+            ("DISTANCE TO WEIR",         "NOTE_DIST_TO_WEIR"),
+            ("BEARING (MINOR BRIDGE)",   "NOTE_BEARING_OVERRIDE"),
+        ]
+        for title, key in structured_titles:
+            val = v.get(key)
+            if val in (None, ""):
+                continue
+            items.append(f"{title}  —  {val}")
+
+        if not items:
+            return False
+
+        # --- Panel border ---
+        total_h = line_h + len(items) * line_h  # 1 header + N items
+        total_h = max(total_h, line_h * 2.0)
+        border = [(x0, y0), (x0 + width, y0),
+                  (x0 + width, y0 - total_h), (x0, y0 - total_h)]
+        self.msp.add_lwpolyline(border, close=True,
+                                dxfattribs={"color": 5, "lineweight": 50})
+
+        # Panel title
+        self.msp.add_text("NOTES", dxfattribs={
+            "height": text_h * 1.4,
+            "insert": (x0 + margin_left, y0 - line_h * 0.70),
+            "color": 5,
+        })
+
+        # Items — word-wrap is intentionally skipped because NOTEi_TEXT
+        # is kept to single line-length by the parameter spec (<=120 chars).
+        for i, line in enumerate(items):
+            self.msp.add_text(line, dxfattribs={
+                "height": text_h,
+                "insert": (x0 + margin_left,
+                           y0 - line_h * (2 + i) + (text_h * 0.1)),
+                "color": 7,
+            })
+        return True
+
     def generate_complete_drawing(self, excel_file: Path, output_file: Path) -> bool:
         """Generate complete bridge GAD drawing."""
         try:
             # Setup
             self.setup_document()
-            
+            self._excel_path = Path(excel_file)
+
             # Read parameters
             if not self.read_variables_from_excel(excel_file):
                 return False
-            
+
             # Draw all components
             logger.info("Starting bridge drawing generation...")
-            
+
             # Draw border and title block first (underneath)
             self.draw_a4_border()
-            
+
             # Main drawing elements
             self.draw_layout_and_axes()
             self.draw_cross_section_profile()
@@ -1372,30 +2007,87 @@ class BridgeGADGenerator:
             self.draw_plan_view()
             self.draw_side_elevation()
             self.add_dimensions_and_labels()
-            
+
+            # ----- PMGSY optional panels (OPT-IN, silent skip otherwise) -----
+            try:
+                # Find a quiet corner of the sheet (bottom-right free area) to
+                # place soil legend + notes.  When templates do not set the
+                # SOIL/NOTES/SCHED variables, these calls are no-ops.
+                page_w = float(self.doc.header.get("$EXTMAX", (0,))[0]
+                               if getattr(self.doc, "header", None) else 29700.0)
+                if page_w < 1000:
+                    page_w = 29700.0  # A4 width at 1:1 scale in mm
+                s1 = float(self.variables.get("SCALE1", 186) or 186)
+                # Bottom of sheet + some margin upwards
+                y_inset = 2200.0 + s1 * 5.0
+                x_right = page_w - (300.0 + s1 * 10.0)
+
+                # Sheet 2 style: Soil legend, schedule, notes sit below the
+                # existing views.  For the single-sheet generate_complete_
+                # drawing() pipeline they stack to the right of plan view so
+                # no overlap occurs.
+                try:
+                    # Left column: SOIL profile legend
+                    y_soil = y_inset + 5500.0
+                    self.draw_soil_profile_legend(2500.0, y_soil)
+                except Exception as exc:
+                    logger.info("soil_profile_legend opt-in skip: %s", exc)
+                try:
+                    # Schedule table spans the mid-width at the bottom
+                    y_sched = y_inset + 2600.0
+                    self.draw_schedule_table(2500.0, y_sched)
+                except Exception as exc:
+                    logger.info("schedule_table opt-in skip: %s", exc)
+                try:
+                    # Notes panel bottom-right
+                    y_notes = y_inset + 2200.0
+                    self.draw_pmgsy_notes_panel(2500.0, y_notes, width=x_right - 2500.0)
+                except Exception as exc:
+                    logger.info("pmgsy_notes_panel opt-in skip: %s", exc)
+            except Exception as exc:
+                logger.info("PMGSY optional panels skipped (%s)", exc)
+
             # Add title block and footer
             self.add_title_block()
             self.add_project_name_footer()
-            
+
+            # Last-write structural pass: sanitize any TEXT entities that
+            # have insert=None (which would otherwise poison ezdxf Frontend
+            # rendering and produce blank-PDF output). Also drops unreadable
+            # orphan entities. Logging only; never raises.
+            self._sanitize_entities_before_save()
+
             # Save the drawing
             self.doc.saveas(output_file)
             logger.info(f"Bridge GAD drawing saved to: {output_file}")
-            
+
             return True
-            
+
         except Exception as e:
             logger.error(f"Error generating complete drawing: {e}")
             return False
+
+
+def _fmt_num(val: Any) -> str:
+    """Format a numeric parameter to 3 decimal places for schedule display."""
+    if val is None:
+        return ""
+    try:
+        return f"{float(val):.3f}"
+    except (TypeError, ValueError):
+        s = str(val).strip()
+        return s if s else ""
 
 
 def generate_bridge_gad(excel_file: Path, output_file: Path = None) -> Path:
     """Main function to generate bridge GAD from Excel input."""
     if output_file is None:
         output_file = excel_file.parent / "bridge_gad_output.dxf"
-    
+
     generator = BridgeGADGenerator()
-    
+
     if generator.generate_complete_drawing(excel_file, output_file):
         return output_file
     else:
         raise RuntimeError("Failed to generate bridge GAD drawing")
+

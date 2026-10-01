@@ -34,6 +34,7 @@ function App() {
   const [busy, setBusy] = useState(false);
   const [notice, setNotice] = useState("Preview loaded — upload a parameter workbook to generate a drawing.");
   const [generatedUrl, setGeneratedUrl] = useState<string | null>(null);
+  const [generatedPdfUrl, setGeneratedPdfUrl] = useState<string | null>(null);
 
   useEffect(() => {
     fetch("/api/health")
@@ -78,15 +79,28 @@ function App() {
     const formData = new FormData();
     formData.append("excel_file", selectedFile);
     try {
-      const response = await fetch("/api/predict?output_format=dxf", {
+      // Generate DXF
+      const dxfResponse = await fetch("/api/predict?output_format=dxf", {
         method: "POST",
         body: formData,
       });
-      if (!response.ok) throw new Error("Generation failed");
-      const blob = await response.blob();
+      if (!dxfResponse.ok) throw new Error("DXF generation failed");
+      const dxfBlob = await dxfResponse.blob();
       if (generatedUrl) URL.revokeObjectURL(generatedUrl);
-      setGeneratedUrl(URL.createObjectURL(blob));
-      setNotice("DXF generated successfully. Download it from the export panel.");
+      setGeneratedUrl(URL.createObjectURL(dxfBlob));
+
+      // Generate PDF
+      setNotice("Generating PDF output…");
+      const pdfResponse = await fetch("/api/predict?output_format=pdf", {
+        method: "POST",
+        body: formData,
+      });
+      if (!pdfResponse.ok) throw new Error("PDF generation failed");
+      const pdfBlob = await pdfResponse.blob();
+      if (generatedPdfUrl) URL.revokeObjectURL(generatedPdfUrl);
+      setGeneratedPdfUrl(URL.createObjectURL(pdfBlob));
+
+      setNotice("DXF and PDF generated successfully. Download them from the export panel.");
       setBackend("online");
     } catch {
       setNotice("Live generation is not configured here yet. The review draft and 11-bridge PDF catalogue are still ready to use.");
@@ -147,6 +161,9 @@ function App() {
             <span className="sheet-chip">SHEET 01 / 01</span>
             <a className="button button-dark" href="/api/template?template_key=simple_12m">
               Download template
+            </a>
+            <a className="button button-primary" href="/api/generate_sample_pdf" target="_blank" rel="noreferrer">
+              Generate sample PDF
             </a>
           </div>
         </header>
@@ -225,6 +242,7 @@ function App() {
               </div>
               <div className="export-actions">
                 {generatedUrl && <a className="button button-outline" href={generatedUrl} download={`${project.number}.dxf`}>Download generated DXF</a>}
+                {generatedPdfUrl && <a className="button button-outline" href={generatedPdfUrl} download={`${project.number}.pdf`}>Download generated PDF</a>}
                 <a className="button button-outline" href="/bridge-catalogue-11.pdf" target="_blank" rel="noreferrer">Open 11-bridge PDF catalogue ↗</a>
                 <a className="button button-outline" href="/samples/sample_input.xlsx" download>Download sample workbook</a>
               </div>

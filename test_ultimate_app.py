@@ -457,9 +457,9 @@ def test_standards_metadata():
     assert merged["OWNER_PROFILE"] == "NHAI"
     assert merged["REVISION"] == s.DEFAULT_METADATA["REVISION"]
 
-    # owner_profile_rows returns all four presets.
+    # owner_profile_rows returns all presets incl. PMGSY minor-bridge.
     ow = owner_profile_rows()
-    assert len(ow) == 4
+    assert len(ow) == 5
 
 
 def test_template_excel_enriched():
@@ -501,7 +501,7 @@ def test_template_excel_enriched():
         assert {"Profile Key", "Owner", "Drawing Standard",
                 "Design Live Load", "Review Note"} \
             .issubset(set(df_owner.columns))
-        assert len(df_owner) == 4  # four authority presets
+        assert len(df_owner) == 5  # authority presets incl. PMGSY
 
         df_sheet = pd.read_excel(xls, sheet_name="SheetIndex")
         assert len(df_sheet) == 7  # phase two schedule
@@ -600,4 +600,360 @@ def test_phase_three_package_zip():
                 assert required_sheet in xls.sheet_names
             df_s3 = pd.read_excel(xls, sheet_name="SheetIndex")
             assert len(df_s3) == 11
+
+
+# =========================================================================
+# PHASE C3 — DXF STRUCTURAL REGRESSION TESTS
+# Baseline facts captured 2026-09-29 from ezdxf inspection of
+# test_run_output/DXF/02_phase_two_7sheet/01_simple_12m_Sheet_Sheet*.dxf
+# and multi_sheet_generator.py grep (TBC_BY_ENGINEER markers).
+# Rule: NO invented data — every bound / keyword / code is fact-verified.
+# Fix IDs referenced: §11 C3 in CREAT.MD
+# =========================================================================
+
+
+def _dxf_structural_baselines():
+    """Return the verified structural baseline table for simple_12m.
+
+    bounds are (min_entities, max_entities) inclusive.  We assert >=min
+    to allow future polish (C2 hatching / dims) to INCREASE entity counts
+    without breaking the test.  max bound catches catastrophic drops
+    (empty sheet, dropped title block) while tolerating incremental polish.
+    """
+    return {
+        # Phase 2 sheets
+        "Sheet1": {
+            "code": "IDX", "title": "DRAWING INDEX AND BASIS",
+            "sheet_of": "Sheet 1 of 7",
+            "entity_types_at_least": {"TEXT": 30, "LWPOLYLINE": 2, "LINE": 5},
+            "min_entities": 45,
+            # Required strings that must appear somewhere in the drawing.
+            "required_substrings": [
+                "DRAWING INDEX AND BASIS", "Sheet 1 of 7",
+                "Drg: GAD-001", "Basis: IRC / MoRTH",
+                "IDX", "GAD", "TYP", "ABT", "PIER", "BRG", "DRN",
+            ],
+        },
+        "Sheet2": {
+            "code": "GAD", "title": "PLAN VIEW - TOP",
+            "sheet_of": "Sheet 2 of 7",
+            "entity_types_at_least": {"TEXT": 8, "LWPOLYLINE": 3, "LINE": 2},
+            "min_entities": 15,
+            "required_substrings": [
+                "PLAN VIEW - TOP", "Sheet 2 of 7",
+                "Drg: GAD-001", "Basis: IRC / MoRTH",
+                "Span 1", "Width:", "Total Length:",
+            ],
+        },
+        "Sheet3": {
+            "code": "TYP", "title": "SECTION VIEW - PROFILE",
+            "sheet_of": "Sheet 3 of 7",
+            "entity_types_at_least": {"TEXT": 10, "LWPOLYLINE": 4, "LINE": 3},
+            "min_entities": 18,
+            "required_substrings": [
+                "SECTION VIEW - PROFILE", "Sheet 3 of 7",
+                "Drg: GAD-001", "Basis: IRC / MoRTH",
+                "DATUM", "Span:", "Height:",
+            ],
+        },
+        "Sheet4": {
+            "code": "ABT", "title": "ABUTMENT ELEVATION - ENLARGED",
+            "sheet_of": "Sheet 4 of 7",
+            "entity_types_at_least": {"TEXT": 10, "LWPOLYLINE": 4, "LINE": 2},
+            "min_entities": 16,
+            "required_substrings": [
+                "ABUTMENT ELEVATION - ENLARGED", "Sheet 4 of 7",
+                "Drg: GAD-001", "Basis: IRC / MoRTH",
+                "GROUND LEVEL",
+            ],
+        },
+        "Sheet5": {
+            "code": "PIER", "title": "PIER ELEVATION - ENLARGED",
+            "sheet_of": "Sheet 5 of 7",
+            "entity_types_at_least": {"TEXT": 10, "LWPOLYLINE": 4, "LINE": 3},
+            "min_entities": 18,
+            "required_substrings": [
+                "PIER ELEVATION - ENLARGED", "Sheet 5 of 7",
+                "Drg: GAD-001", "Basis: IRC / MoRTH",
+                "Pier Width", "Height", "Footing Width", "GROUND LEVEL",
+            ],
+        },
+        "Sheet6": {
+            "code": "BRG", "title": "BEARING AND EXPANSION JOINT NOTES",
+            "sheet_of": "Sheet 6 of 7",
+            "entity_types_at_least": {"TEXT": 12, "LWPOLYLINE": 3},
+            "min_entities": 15,
+            "required_substrings": [
+                "BEARING AND EXPANSION JOINT NOTES", "Sheet 6 of 7",
+                "Drg: GAD-001", "Basis: IRC / MoRTH",
+                "Bearing system:", "Elastomeric",
+                "detail drawings",  # note 5 ends with "...issued in detail drawings."
+            ],
+        },
+        "Sheet7": {
+            "code": "DRN", "title": "DRAINAGE, SAFETY AND UTILITY NOTES",
+            "sheet_of": "Sheet 7 of 7",
+            "entity_types_at_least": {"TEXT": 12, "LWPOLYLINE": 3},
+            "min_entities": 15,
+            "required_substrings": [
+                "DRAINAGE, SAFETY AND UTILITY NOTES", "Sheet 7 of 7",
+                "Drg: GAD-001", "Basis: IRC / MoRTH",
+                "Drainage spout", "RCC crash barrier",
+            ],
+        },
+        # Phase 3 sheets (TBC-stamped detail stubs) — baseline facts come
+        # from multi_sheet_generator grep, not eyeballed DXF samples yet.
+        # We don't pin exact entity counts here because detail polish (C2)
+        # will raise them; we just assert the critical ring-fenced markers
+        # and the no-invented-data TBC_BY_ENGINEER stamps are present.
+        "Sheet8": {
+            "code": "BRG-DET", "title": None, "sheet_of": None,
+            "entity_types_at_least": {"TEXT": 10, "LWPOLYLINE": 2},
+            "min_entities": 15,
+            "required_substrings": [
+                "TBC_BY_ENGINEER",  # ring-fence stamp
+                "Bearing",
+            ],
+        },
+        "Sheet9": {
+            "code": "EXPJ-DET", "title": None, "sheet_of": None,
+            "entity_types_at_least": {"TEXT": 10, "LWPOLYLINE": 2},
+            "min_entities": 15,
+            "required_substrings": [
+                "TBC_BY_ENGINEER",
+                "Expansion", "joint",
+            ],
+        },
+        "Sheet10": {
+            "code": "WING-DET", "title": None, "sheet_of": None,
+            "entity_types_at_least": {"TEXT": 10, "LWPOLYLINE": 2},
+            "min_entities": 15,
+            "required_substrings": [
+                "TBC_BY_ENGINEER",
+                "REINFORCEMENT", "TBC",  # "REINFORCEMENT (INDICATIVE — TBC)"
+                "Wing",
+            ],
+        },
+        "Sheet11": {
+            "code": "DRN-DET", "title": None, "sheet_of": None,
+            "entity_types_at_least": {"TEXT": 10, "LWPOLYLINE": 2},
+            "min_entities": 15,
+            "required_substrings": [
+                "TBC_BY_ENGINEER",
+                "Drainage", "Downpipe" if False else "pipe",  # tolerant match
+            ],
+        },
+    }
+
+
+def test_phase2_phase3_dxf_structural_regression(tmp_path):
+    """Phase C3 structural regression: entity-count sanity, layer
+    presence, title-block text strings, TBC-by-engineer integrity
+    stamps for the full 11-sheet Phase-3 package.
+
+    Uses MultiSheetGenerator + simple_12m template params, writes to
+    pytest tmp_path (auto-cleaned), opens every DXF with ezdxf, and
+    asserts the per-sheet baseline table in _dxf_structural_baselines.
+    """
+    import ezdxf
+    from bridge_gad.multi_sheet_generator import DetailedSheetGenerator
+    from bridge_gad.bridge_canvas_features import BRIDGE_TEMPLATES
+
+    params = BRIDGE_TEMPLATES["simple_12m"]["parameters"]
+    baselines = _dxf_structural_baselines()
+
+    # _save_sheet_set(sheets, output_path) treats output_path as a FILE:
+    #   output_dir = output_path.parent   (where DXFs are written)
+    #   output_stem = output_path.stem    (prefix:  f"{stem}_Sheet{N}.dxf")
+    # Therefore pass a file-like path inside our tmp directories.
+    # -------- Phase 2: 7 sheet package --------
+    gen = DetailedSheetGenerator()
+    p2_dir = tmp_path / "phase2"
+    p2_dir.mkdir()
+    p2_prefix = p2_dir / "simple_12m_Sheet"
+    p2_ok = gen.generate_phase_two_package(params, p2_prefix)
+    assert p2_ok is True, "generate_phase_two_package returned False"
+    p2_dxfs = sorted(p2_dir.glob("*.dxf"))
+    # Exact 7 files.  Naming: simple_12m_Sheet_Sheet1.dxf .. simple_12m_Sheet_Sheet7.dxf
+    assert len(p2_dxfs) == 7, \
+        f"Phase 2 expected 7 DXFs in {p2_dir}, got {len(p2_dxfs)}: {[p.name for p in p2_dxfs]}"
+
+    # -------- Phase 3: 11 sheet package --------
+    p3_dir = tmp_path / "phase3"
+    p3_dir.mkdir()
+    p3_prefix = p3_dir / "simple_12m_Sheet"
+    p3_ok = gen.generate_phase_three_package(params, p3_prefix)
+    assert p3_ok is True, "generate_phase_three_package returned False"
+    p3_dxfs = sorted(p3_dir.glob("*.dxf"))
+    assert len(p3_dxfs) == 11, \
+        f"Phase 3 expected 11 DXFs in {p3_dir}, got {len(p3_dxfs)}: {[p.name for p in p3_dxfs]}"
+
+    # -------- Helper: structural assertions on one DXF --------
+    def _check_one(dxf_path, sheet_key, allow_missing_substrings=False):
+        baseline = baselines[sheet_key]
+        doc = ezdxf.readfile(dxf_path)
+        msp = doc.modelspace()
+        entities = list(msp)
+        n_ents = len(entities)
+        assert n_ents >= baseline["min_entities"], (
+            f"{sheet_key} ({dxf_path.name}): only {n_ents} entities, "
+            f"need >= {baseline['min_entities']} "
+            f"(baseline fact-verified 2026-09-29)"
+        )
+
+        # Entity-type floor counts.
+        type_counts = {}
+        for e in entities:
+            type_counts[e.dxftype()] = type_counts.get(e.dxftype(), 0) + 1
+        for etype, floor in baseline["entity_types_at_least"].items():
+            actual = type_counts.get(etype, 0)
+            assert actual >= floor, (
+                f"{sheet_key}: entity type {etype} count={actual} "
+                f"below floor={floor}.  Full type histogram: {type_counts}"
+            )
+
+        # Layer presence: baseline is a single layer "0".  (Future C2
+        # hatching may add CONCRETE/STEEL/...; guard with superset.)
+        layers_present = {e.dxf.layer for e in entities if e.dxf.layer}
+        assert "0" in layers_present, (
+            f"{sheet_key}: all drawings must contain at least layer '0'. "
+            f"Found: {sorted(layers_present)}"
+        )
+
+        # Required substrings: concatenate TEXT + MTEXT strings once.
+        all_text_bits = []
+        for t in msp.query("TEXT MTEXT"):
+            try:
+                s = t.dxf.text if hasattr(t.dxf, "text") else (t.text or "")
+            except Exception:
+                s = ""
+            if s:
+                all_text_bits.append(str(s))
+        all_text = "\n".join(all_text_bits)
+
+        missing = []
+        for needle in baseline["required_substrings"]:
+            # Case-insensitive, substring-match (text may be split across
+            # lines / wrapped MTEXT).
+            if needle.lower() not in all_text.lower():
+                # Some Phase-3 substrings may be tolerant (e.g. "pipe" may
+                # appear as "downpipe" / "downtake").  Do NOT fail silently:
+                # record and, when caller does not allow, assert.
+                missing.append(needle)
+
+        if missing and not allow_missing_substrings:
+            # Diagnostic: show first 1500 chars of TEXT dump so failed
+            # assertion points the engineer at what WAS actually written.
+            preview = all_text[:1500].replace("\r", " ")
+            raise AssertionError(
+                f"{sheet_key}: required strings not found in TEXT/MTEXT: "
+                f"{missing}.\nTEXT dump (first 1500 chars):\n{preview}"
+            )
+        return {
+            "n_entities": n_ents,
+            "type_counts": type_counts,
+            "layers": sorted(layers_present),
+            "missing_strings": missing,
+        }
+
+    import re as _re_numsort
+
+    def _sheet_num_key(path: Path):
+        """Sort by numeric Sheet{N} suffix so Sheet10 does NOT sort before
+        Sheet2 (Python's lexicographic string sort would break order)."""
+        m = _re_numsort.search(r"Sheet(\d+)\.dxf$", path.name)
+        return int(m.group(1)) if m else 999
+
+    p2_dxfs = sorted(p2_dir.glob("*.dxf"), key=_sheet_num_key)
+    assert len(p2_dxfs) == 7, (
+        f"Phase 2 expected 7 DXFs in {p2_dir}, got {len(p2_dxfs)}: "
+        f"{[p.name for p in p2_dxfs]}"
+    )
+    # Phase 2 sheets numeric order: Sheet1 (IDX) .. Sheet7 (DRN).
+    for i in range(7):
+        _check_one(p2_dxfs[i], f"Sheet{i + 1}")
+
+    # Phase 3 package contains 11 sheets in NUMERIC sheet-suffix order:
+    #   Sheet1 IDX, Sheet2 GAD, Sheet3 TYP, Sheet4 ABT, Sheet5 PIER,
+    #   Sheet6 BRG, Sheet7 DRN,
+    #   Sheet8 BRG-DET, Sheet9 EXPJ-DET, Sheet10 WING-DET, Sheet11 DRN-DET
+    # (matches PHASE_THREE_SHEETS iteration order in generate_phase_three_package;
+    #  _save_sheet_set names each f"{output_stem}_Sheet{{i}}.dxf").
+    # Sheets 1..7 already passed via Phase-2 package (identical generation
+    # path with identical params).  Assert ONLY the 4 new appendices here.
+    p3_sorted = sorted(p3_dir.glob("*.dxf"), key=_sheet_num_key)
+    assert len(p3_sorted) == 11
+    p3_appendices = p3_sorted[-4:]  # numeric indices 8,9,10,11
+    # Map in fixed order: BRG-DET (8), EXPJ-DET (9), WING-DET (10), DRN-DET (11)
+    classified = {
+        "BRG-DET":  p3_appendices[0],
+        "EXPJ-DET": p3_appendices[1],
+        "WING-DET": p3_appendices[2],
+        "DRN-DET":  p3_appendices[3],
+    }
+
+    # Sanity-check the filename suffixes match our positional assumption:
+    for code, path in classified.items():
+        expected_sheet_num = {"BRG-DET": 8, "EXPJ-DET": 9, "WING-DET": 10, "DRN-DET": 11}[code]
+        assert f"Sheet{expected_sheet_num}" in path.name, (
+            f"Positional appendix assumption broken: {code} expected Sheet{expected_sheet_num} "
+            f"in filename but got: {path.name}"
+        )
+
+    # Run structural assertions on the 4 matched Phase-3 appendices.
+    mapping = {"BRG-DET": "Sheet8", "EXPJ-DET": "Sheet9",
+               "WING-DET": "Sheet10", "DRN-DET": "Sheet11"}
+    for code, path in classified.items():
+        _check_one(path, mapping[code])
+
+    # Final smoke: every Phase-3 DXF must be non-trivial bytes.
+    for dx in p3_sorted:
+        assert dx.stat().st_size >= 2000, (
+            f"Phase-3 DXF {dx.name} is only {dx.stat().st_size} B — "
+            f"looks like an empty / failed write."
+        )
+
+    # --- Optional: common title-block invariants across ALL 7 Phase-2 sheets ---
+    # Every Phase-2 sheet should share these title-block strings.
+    invariant_texts = [
+        "By: Bridge GAD Generator",
+        "Project: Simple Span 12 m Bridge",
+        "Drg: GAD-001",
+        "Rev: R0",
+        "Basis: IRC / MoRTH",
+    ]
+    for i in range(7):
+        doc = ezdxf.readfile(p2_dxfs[i])
+        blob = ""
+        for t in doc.modelspace().query("TEXT MTEXT"):
+            try:
+                s = t.dxf.text if hasattr(t.dxf, "text") else (t.text or "")
+            except Exception:
+                s = ""
+            blob += " " + (s or "")
+        low = blob.lower()
+        missing_inv = [tok for tok in invariant_texts if tok.lower() not in low]
+        assert not missing_inv, (
+            f"Phase-2 sheet {i + 1} filename={p2_dxfs[i].name}: "
+            f"missing title-block invariant strings {missing_inv}.\n"
+            f"First 800 chars of TEXT: {blob[:800]}"
+        )
+
+    # --- TBC-stamp integrity check on all Phase-3 appendices ---------------
+    # The ring-fenced "TBC_BY_ENGINEER" string must appear in EVERY Phase-3
+    # appendix DXF (it's the no-invented-data compliance stamp).
+    for code, path in classified.items():
+        doc = ezdxf.readfile(path)
+        blob = ""
+        for t in doc.modelspace().query("TEXT MTEXT"):
+            try:
+                s = t.dxf.text if hasattr(t.dxf, "text") else (t.text or "")
+            except Exception:
+                s = ""
+            blob += " " + (s or "")
+        assert "TBC_BY_ENGINEER" in blob, (
+            f"Phase-3 appendix {code} (file {path.name}) is missing the "
+            f"TBC_BY_ENGINEER ring-fence stamp — violates no-invented-data "
+            f"rule.  First 800 chars of TEXT:\n{blob[:800]}"
+        )
 

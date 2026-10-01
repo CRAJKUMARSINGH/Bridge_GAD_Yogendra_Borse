@@ -332,7 +332,32 @@ class DetailedSheetGenerator:
         self._draw_title_block(msp, "ABUTMENT ELEVATION - ENLARGED", sheet_num, total_sheets, variables)
         
         # Get dimensions
-        abtl = float(variables.get('ABTL', 13))
+        # Bug 4 (CRITICAL): ABTL defaults to 0.0 in many templates (simple_12m
+        # verified) → zero-length wall.  When ABTL is degenerate (< 1.0 m)
+        # fall back through PMGSY-standard parameters that are reliably set:
+        #   FUTL  (abutment footing length — default 13.0 in specs)
+        #   ALCL  (abutment-left clear length)
+        #   ALCW  (abutment-left clear width)
+        # Never invent engineering numbers; just take best available length
+        # from existing real PMGSY params already in the template workbook.
+        raw_abtl = float(variables.get('ABTL', 0.0))
+        futl = float(variables.get('FUTL', variables.get('FOOTL', variables.get('FUTRL', 13.0))))
+        alcl = float(variables.get('ALCL', 0.0))
+        alcw = float(variables.get('ALCW', 0.0))
+        if raw_abtl >= 1.0:
+            abtl = raw_abtl
+        elif futl >= 1.0:
+            abtl = futl
+        elif alcl >= 1.0:
+            abtl = alcl
+        elif alcw >= 1.0:
+            abtl = alcw
+        else:
+            abtl = 13.0  # spec default; only reached if ALL are missing
+        abtl_source = "ABTL" if raw_abtl >= 1.0 else (
+            "FUTL" if futl >= 1.0 else (
+                "ALCL" if alcl >= 1.0 else (
+                    "ALCW" if alcw >= 1.0 else "SPEC-DEFAULT")))
         rtl = float(variables.get('RTL', 110.98))
         datum = float(variables.get('DATUM', 100))
         ccbr = float(variables.get('CCBR', 11.1))
@@ -354,14 +379,15 @@ class DetailedSheetGenerator:
         ]
         msp.add_lwpolyline(abt_points, dxfattribs={'lineweight': 50, 'color': 4})
         
-        # Footing
+        # Footing (protrude 2.0m each side, or 5 scaled-units whichever larger)
+        foot_protrude = max(5, 2.0 * scale)
         foot_y = abt_base_y - futd * scale
         foot_points = [
-            (abt_base_x - 5, abt_base_y),
-            (abt_base_x + abtl * scale + 5, abt_base_y),
-            (abt_base_x + abtl * scale + 5, foot_y),
-            (abt_base_x - 5, foot_y),
-            (abt_base_x - 5, abt_base_y)
+            (abt_base_x - foot_protrude, abt_base_y),
+            (abt_base_x + abtl * scale + foot_protrude, abt_base_y),
+            (abt_base_x + abtl * scale + foot_protrude, foot_y),
+            (abt_base_x - foot_protrude, foot_y),
+            (abt_base_x - foot_protrude, abt_base_y)
         ]
         msp.add_lwpolyline(foot_points, dxfattribs={'lineweight': 35, 'color': 5})
         
@@ -369,8 +395,9 @@ class DetailedSheetGenerator:
         dim_y = abt_base_y - 10
         msp.add_line((abt_base_x, dim_y), (abt_base_x + abtl * scale, dim_y), 
                     dxfattribs={'lineweight': 15})
-        msp.add_text(f"Length: {abtl}m", dxfattribs={'height': 2.5}).set_placement(
-            (abt_base_x + abtl * scale / 2 - 8, dim_y - 3))
+        msp.add_text(f"Length: {abtl:.1f}m (from {abtl_source})",
+                     dxfattribs={'height': 2.5}).set_placement(
+            (abt_base_x + abtl * scale / 2 - 14, dim_y - 3))
         
         dim_x = abt_base_x - 15
         msp.add_line((dim_x, abt_base_y), (dim_x, abt_top_y), 

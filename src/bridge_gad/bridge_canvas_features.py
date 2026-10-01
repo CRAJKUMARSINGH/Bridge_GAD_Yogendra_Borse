@@ -358,6 +358,121 @@ BRIDGE_TEMPLATES: Dict[str, Dict[str, Any]] = {
             "ALTBR": 100.5, "ALFD": 1.5, "ALBBR": 101.5,
         }, DRAWING_NO="GAD-005", PROJECT_NAME="Arch Bridge 24 m"),
     },
+    "pmgsy_7x9": {
+        "name": "PMGSY 7×9.0m Minor Bridge",
+        "description": (
+            "2-sheet PMGSY standard General Arrangement for a 7-span × 9.0m "
+            "minor slab bridge: Sheet 01 = Sectional Elevation + Plan; "
+            "Sheet 02 = Section A-A + Soil Profile + Abutment/Return sections "
+            "+ Weep holes + Schedule Table + 13 Notes (bearing=TAR PAPER)."
+        ),
+        "parameters": merge_with_metadata({
+            # ── Drawing / scales ─────────────────────────────────────
+            "SCALE1": 186, "SCALE2": 1, "SKEW": 0, "DATUM": 100.000,
+            "TOPRL": 108.0, "LEFT": 0, "RIGHT": 63, "XINCR": 5, "YINCR": 1,
+            "NOCH": 2,
+            # ── Geometry ─────────────────────────────────────────────
+            "NSPAN": 7, "LBRIDGE": 63.0, "ABTL": 0,
+            "RTL": 102.515, "SOFL": 101.915,
+            "SPAN1": 9.0, "SPAN2": 9.0, "SPAN3": 9.0, "SPAN4": 9.0,
+            "SPAN5": 9.0, "SPAN6": 9.0, "SPAN7": 9.0,
+            # ── Roadway (sample: 8.400m OA / 7.500m CW / 2x 0.450m)
+            "LANES": 2, "FOOTPATHW": 0.0, "MEDIANW": 0.0,
+            "CCBR": 7.5,
+            "KERBW": 0.45, "KERBD": 0.225,
+            "CROSSFALL": 0.020,
+            "WCTH": 0.075,
+            "CRASHB": 0, "BARRIERH": 0.6, "BARRIERT": "Kerb / Parapet",
+            "UTILITYD": 0.0, "DRAINSP": 5.0, "EXPJT": 0.025,
+            # ── Superstructure (slab) ───────────────────────────────
+            "SLBTHC": 0.60, "SLBTHE": 0.60, "SLBTHT": 0.60,
+            # ── Bearings ────────────────────────────────────────────
+            # TAR PAPER — PMGSY minor-bridge standard (NOT elastomeric)
+            "BEARING_TYPE": "Tar Paper",
+            "NOTE_BEARING_OVERRIDE": "TAR PAPER bearing pad — PMGSY Minor Bridge standard",
+            "BEARING_W": 0.35,
+            # ── Substructure: Pier (6 piers, NSPAN-1) ───────────────
+            "CAPT": 101.915, "CAPB": 100.915,
+            "CAPW": 1.90, "PIERTW": 0.95, "BATTR": 10, "PIERST": 2.25,
+            "PIERN": 6,
+            "FUTRL": 96.400, "FUTD": 0.67, "FUTW": 2.25, "FUTL": 2.25,
+            # ── Substructure: Abutments (L + R) ─────────────────────
+            "DWTH": 0.25,
+            "ALCW": 0.75, "ALCD": 1.00,
+            "ALFB": 5, "ALFBL": 101.3, "ALFBR": 101.30,
+            "ALTB": 5, "ALTBL": 100.80, "ALTBR": 100.80,
+            "ALBB": 5, "ALBBL": 102.315,
+            "ALFO": 0.5, "ALFD": 1.5,
+            "ALFL": 96.900, "ARFL": 96.900,
+            "ABTLEN": 8.40, "LASLAB": 3.0, "APWTH": 8.40, "APTHK": 0.20,
+            "ALBBR": 102.315,
+            # ── Wing / Return walls ─────────────────────────────────
+            "WING_W": 0.40, "WING_L": 3.00, "WING_H": 5.615,
+            # ── Weep holes: 100 mm Ø @ 1000 c/c, 2 staggered rows ──
+            "WEEP_DIAM": 100, "WEEP_C_TO_C": 1000,
+            "WEEP_ROWS": 2, "WEEP_STAGGER": 1,
+            # ── Soil Profile (3 layers) ─────────────────────────────
+            "SOIL1_NAME":  "SOFT ROCK", "SOIL1_THICK": 0.50,
+            "SOIL1_HATCH": "ANSI31",    "SOIL1_COLOR": 6,
+            "SOIL2_NAME":  "SOIL",      "SOIL2_THICK": 0.50,
+            "SOIL2_HATCH": "ANSI37",    "SOIL2_COLOR": 3,
+            "SOIL3_NAME":  "HARD ROCK", "SOIL3_THICK": 0.50,
+            "SOIL3_HATCH": "AR-SAND",   "SOIL3_COLOR": 5,
+            "AVG_GL_RL": 101.50,
+            # ── Bridge Schedule Table ───────────────────────────────
+            "SCHED_SNO":       "1",
+            "SCHED_CHAINAGE":  "CH 2+300",
+            "SCHED_TYPE":      "Slab",
+            "SCHED_FRL":       102.515,
+            "SCHED_BL":        96.900,
+            "SCHED_PROPOSED":  "7x9.0 m",
+            "SCHED_SPAN_TEXT": "7x9.0m Slab (Total 63m)",
+            "SCHED_HEIGHT":    5.515,
+            "SCHED_B1":        1.90,
+            "SCHED_B2":        0.95,
+            "SCHED_B3":        2.25,
+            "SCHED_B4":        0.67,
+            # ── Notes Panel (13 items, matching sample PDF exactly) ─
+            "NOTE1_TEXT":  "1) All dimensions are in millimeters unless otherwise stated. Levels are in metres.",
+            "NOTE2_TEXT":  "2) All RCC works conforming to the relevant IRC/IS Specifications shall be adopted.",
+            "NOTE3_TEXT":  "3) Concrete mix: PCC M-10 for soling, PCC M-15 for abutment/return/well, RCC M-20 for general, RCC M-30 for deck slab/pier caps, minimum cement content 320 kg/m³.",
+            "NOTE4_TEXT":  "4) Reinforcement: HYSD bars Fe 500 IS:1786. TMT bars of approved make only.",
+            "NOTE5_TEXT":  "5) Clear cover to reinforcement: 40mm for deck, 50mm for piers, 60mm for footings in contact with soil.",
+            "NOTE6_TEXT":  "6) Bearing type – TAR PAPER bearing pad of approved thickness. Replace at 5 yearly maintenance cycle.",
+            "NOTE7_TEXT":  "7) Weep holes 100 mm diameter at 1000 mm c/c staggered in abutment & return walls. 300mm thick graded filter behind every weep hole.",
+            "NOTE8_TEXT":  "8) Backfill behind abutment / wing walls with non-plastic granular material. Parameters: C=0, φ ≥ 30°, γ = 18 kN/m³. Compacted 95% Proctor density in 250mm layers.",
+            "NOTE9_TEXT":  "9) Design live load basis: Class A-3 Tracked / 70-R Wheeled + Class A, per applicable IRC provisions.",
+            "NOTE10_TEXT": "10) Scour depth: Minimum 2.00 m below HFL as per IRC-78 provisions. Founding level shall be checked against latest site bore log.",
+            "NOTE11_TEXT": "11) Minimum clear vertical clearance under bridge superstructure: 5.50 m above HFL for waterway and 5.00 m above road top for approaches.",
+            "NOTE12_TEXT": "12) Distance from bridge structure to nearest weir / barrage / obstruction: 20.00 metres minimum, verify with site plan.",
+            "NOTE13_TEXT": "13) Expansion joints at every pier line. Neoprene / bituminous poured joint with top-seal cover plate at every 9.000 m c/c.",
+            "NOTE_CONCRETE_GRADES": "PCC M-10 (soling) | PCC M-15 (abutment/return/well) | RCC M-20 (general) | RCC M-30 (deck/pier caps)",
+            "NOTE_REINF_STANDARD":   "Fe 500 HYSD bars conforming to IS:1786",
+            "NOTE_LIVE_LOAD_COMBO":  "Class A-3 Tracked / 70-R Wheeled + Class A (IRC)",
+            "NOTE_BACKFILL_PARAMS":  "C = 0 ; φ ≥ 30° ; γ = 18 kN/m³",
+            "NOTE_SCOUR_CODE":       "2.00 m below HFL — IRC-78",
+            "NOTE_DIST_TO_WEIR":     20.0,
+            # ── Ground profile (optional JSON; user can provide Sheet2)
+            "GROUND_PROFILE_JSON": "",
+        },
+          DRAWING_NO="01-GAD-AT-CH-2-300-7X9-0",
+          PROJECT_NAME="PMGSY Minor Bridge — Chainage CH 2+300",
+          PROJECT_CODE="CH-2-300",
+          REVISION="R0",
+          OWNER_PROFILE="PMGSY",
+          SHEET_NO="1",
+          TOTAL_SHEETS="2",
+          DESIGN_LIVE_LOAD="Class A-3 / 70-R + Class A (IRC)",
+          DRAWING_STANDARD="PMGSY Minor Bridge 2-Sheet GAD Standard",
+          ROAD_CLASS="PMGSY Village Road — 7.50 m clear carriageway",
+          DRAWN_BY="Design Cell — Bridge GAD Generator",
+          CHECKED_BY="Design Engineer (Structures)",
+          APPROVED_BY="Executive Engineer / Competent Authority",
+          COMPANY_NAME="RKS LEGAL — Techno Legal Consultants",
+          COMPANY_FULL="RKS LEGAL, Techno Legal Consultants, Udaipur",
+          DRAWING_TITLE="GENERAL ARRANGEMENT DRAWING (GAD) FOR 7 × 9.0 m MINOR SLAB BRIDGE AT CH 2+300",
+        ),
+    },
 }
 
 

@@ -95,6 +95,7 @@ async def root():
             {"path": "/predict",        "method": "POST", "description": "Sync: generate drawing (blocks until done)"},
             {"path": "/template",       "method": "GET",  "description": "Download template workbook (query: template_key=[simple_12m|...])"},
             {"path": "/package",        "method": "GET",  "description": "Download submission ZIP (template_key + include_phase_three bool)"},
+            {"path": "/generate_sample_pdf", "method": "GET",  "description": "Generate sample PDF drawing"},
             {"path": "/jobs",           "method": "POST", "description": "Async: enqueue generation job"},
             {"path": "/jobs/{job_id}",  "method": "GET",  "description": "Poll job status"},
             {"path": "/jobs/{job_id}/stream", "method": "GET", "description": "SSE: stream job status"},
@@ -364,6 +365,58 @@ async def get_package(
         media_type="application/zip",
         headers={"Content-Disposition": f"attachment; filename={fname}"},
     )
+
+
+@app.get("/generate_sample_pdf")
+async def generate_sample_pdf():
+    """Generate a sample PDF drawing using the simple_12m template."""
+    try:
+        from .bridge_canvas_features import BRIDGE_TEMPLATES, make_template_excel
+        from .bridge_generator import BridgeGADGenerator
+        from .dxf_to_pdf import convert_dxf_to_pdf
+        import pandas as pd
+    except ImportError as exc:
+        raise HTTPException(
+            status_code=503,
+            detail=f"Sample PDF generator unavailable ({exc}). Install required dependencies.",
+        )
+
+    with tempfile.TemporaryDirectory() as temp_dir:
+        temp_dir_path = Path(temp_dir)
+        
+        # Generate Excel input from template
+        template_key = "simple_12m"
+        params = BRIDGE_TEMPLATES[template_key]["parameters"]
+        xls_bytes = make_template_excel(params)
+        
+        excel_path = temp_dir_path / f"{template_key}_input.xlsx"
+        excel_path.write_bytes(xls_bytes)
+        
+        # Convert to format expected by generator
+        df = pd.DataFrame([[v, k, k] for k, v in params.items()], columns=["Value", "Variable", "Description"])
+        generator_input_path = temp_dir_path / "generator_input.xlsx"
+        df.to_excel(generator_input_path, index=False, header=False)
+        
+        # Generate DXF
+        dxf_path = temp_dir_path / "sample_bridge.dxf"
+        gen = BridgeGADGenerator()
+        gen.generate_complete_drawing(generator_input_path, dxf_path)
+        
+        if not dxf_path.exists():
+            raise HTTPException(status_code=500, detail="DXF generation failed")
+        
+        # Convert DXF to PDF
+        pdf_path = temp_dir_path / "sample_bridge.pdf"
+        convert_dxf_to_pdf(dxf_path, pdf_path)
+        
+        if not pdf_path.exists():
+            raise HTTPException(status_code=500, detail="PDF conversion failed")
+        
+        return FileResponse(
+            pdf_path,
+            media_type=_MIME_TYPES["pdf"],
+            filename="sample_bridge_gad.pdf",
+        )
 
 
 if __name__ == "__main__":
