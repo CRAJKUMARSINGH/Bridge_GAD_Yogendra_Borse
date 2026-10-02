@@ -1,0 +1,21 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "bridgecad-io"
+version = "0.1.0"
+description = "BridgeCAD Enterprise — Excel / CSV / JSON ↔ BridgeProject serialization"
+requires-python = ">=3.11"
+dependencies = [
+  "pandas>=2.0.0",
+  "openpyxl>=3.1.0",
+  "pyyaml>=6.0",
+  "bridgecad-core @ file://../bridgecad-core"
+]
+
+[tool.setuptools]
+packages = ["bridgecad_io"]
+
+[tool.setuptools.package-dir]
+"" = "."

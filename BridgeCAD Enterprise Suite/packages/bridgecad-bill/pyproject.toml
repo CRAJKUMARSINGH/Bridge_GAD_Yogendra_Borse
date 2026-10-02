@@ -1,0 +1,23 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "bridgecad-bill"
+version = "0.1.0"
+description = "BridgeCAD Enterprise — Statutory bill engine (MORTH rates, 4 formatters, statements)"
+requires-python = ">=3.11"
+dependencies = [
+  "openpyxl>=3.1.0",
+  "reportlab>=4.0.0",
+  "pandas>=2.0.0",
+  "pyyaml>=6.0",
+  "jinja2>=3.1.0",
+  "bridgecad-core @ file://../bridgecad-core"
+]
+
+[tool.setuptools]
+packages = ["bridgecad_bill"]
+
+[tool.setuptools.package-dir]
+"" = "."

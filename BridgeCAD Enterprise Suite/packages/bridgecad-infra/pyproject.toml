@@ -1,0 +1,30 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "bridgecad-infra"
+version = "0.1.0"
+description = "BridgeCAD Enterprise — Persistence / ops: DB, cache, queue, storage, logging, metrics, auth"
+requires-python = ">=3.11"
+dependencies = [
+  "sqlalchemy>=2.0.0",
+  "alembic>=1.13.0",
+  "redis>=5.0.0",
+  "boto3>=1.34.0",
+  "structlog>=24.0.0",
+  "prometheus-client>=0.20.0",
+  "arq>=0.26.0",
+  "python-jose[cryptography]>=3.3.0",
+  "passlib[bcrypt]>=1.7.0",
+  "pydantic>=2.6.0",
+  "pydantic-settings>=2.2.0",
+  "pyyaml>=6.0",
+  "bridgecad-core @ file://../bridgecad-core"
+]
+
+[tool.setuptools]
+packages = ["bridgecad_infra"]
+
+[tool.setuptools.package-dir]
+"" = "."

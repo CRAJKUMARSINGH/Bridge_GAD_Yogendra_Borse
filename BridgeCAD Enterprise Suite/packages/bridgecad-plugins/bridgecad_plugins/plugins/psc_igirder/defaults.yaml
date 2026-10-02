@@ -1,0 +1,38 @@
+# PSC I-Girder typical default values (IRC:112-2020, IRC:18-2000)
+superstructure:
+  deck_material:              "M40"
+  deck_thickness_mm:          250
+  wearing_coat_type:          "BITUMINOUS_CONCRETE_BC"
+  wearing_coat_thickness_mm:  50
+  girder_type:                "I_GIRDER_PS_PRECAST_OR_INSITU"
+  girder_depth_mm:            1800     # span 30m → depth 1.8m (span/17)
+  girder_spacing_m:           2.5
+  girders_per_deck_count:     4
+  camber_mm:                  35
+
+substructure:
+  pier_type:         "HAMMERHEAD"
+  pier_material:     "M30"
+  abutment_type:     "CANTILEVER"
+  abutment_material: "M30"
+
+foundation_details:
+  type:              "PILE"
+  pile_type:         "BORED_CAST_IN_SITU"
+  pile_diameter_mm:  1200
+  piles_per_pier:    6
+
+materials:
+  concrete_superstructure:   "M40"
+  concrete_substructure:     "M30"
+  concrete_foundation:       "M30"
+  reinforcement_steel_grade: "Fe500D"
+  prestressing_steel:        "G1860"
+  bearing_type:              "POT_PTFE"
+  expansion_joint_type:      "STRIP_SEAL"
+
+prestress:
+  jacking_stress_pct:     75         # % of UTS
+  prestress_loss_pct:     18         # total losses
+  tendons_per_girder:     3
+  strands_per_tendon:     13

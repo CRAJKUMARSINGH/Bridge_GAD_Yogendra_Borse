@@ -1,0 +1,12 @@
+{
+  "plugin_id":              "psc_igirder",
+  "version":                "1.0.0",
+  "name":                   "PSC I-Girder Bridge",
+  "description":            "Pre-stressed concrete I-girder bridge per IRC:112-2020 for spans 20–45 m",
+  "bridge_types":           ["PSC_IGIRDER"],
+  "span_range_m":           [20, 45],
+  "default_values_yaml":    "defaults.yaml",
+  "draw_overrides_module":  "draw_overrides",
+  "author":                 "BridgeCAD Team",
+  "requires_core":          ">=0.1.0"
+}

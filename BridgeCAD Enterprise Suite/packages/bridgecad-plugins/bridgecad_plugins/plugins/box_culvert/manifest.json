@@ -1,0 +1,12 @@
+{
+  "plugin_id":              "box_culvert",
+  "version":                "1.0.0",
+  "name":                   "RCC Box Culvert",
+  "description":            "Single or multi-cell RCC box culvert per IRC SP:13 / IRC:112-2020 for spans 2–8 m",
+  "bridge_types":           ["BOX_CULVERT"],
+  "span_range_m":           [2, 8],
+  "default_values_yaml":    "defaults.yaml",
+  "draw_overrides_module":  "draw_overrides",
+  "author":                 "BridgeCAD Team",
+  "requires_core":          ">=0.1.0"
+}

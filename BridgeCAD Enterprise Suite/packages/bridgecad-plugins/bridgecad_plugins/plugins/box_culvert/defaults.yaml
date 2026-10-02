@@ -1,0 +1,38 @@
+# RCC Box Culvert typical default values (IRC SP:13 / IRC:112-2020)
+superstructure:
+  deck_material:              "M25"
+  deck_thickness_mm:          300
+  wearing_coat_type:          "BITUMINOUS_CONCRETE_BC"
+  wearing_coat_thickness_mm:  65
+  girder_type:                "T_BEAM_RCC"   # solid slab top of box
+  camber_mm:                  0              # flat top, no camber
+
+substructure:
+  pier_type:         "WALL"
+  pier_material:     "M25"
+  abutment_type:     "CANTILEVER"
+  abutment_material: "M25"
+  pier_height_typical_m: 0.5   # box culvert walls act as piers
+
+foundation_details:
+  type:              "OPEN"
+  pile_type:         "BORED_CAST_IN_SITU"   # fallback; usually open footing
+  pile_diameter_mm:  0
+  piles_per_pier:    0
+
+materials:
+  concrete_superstructure:   "M25"
+  concrete_substructure:     "M25"
+  concrete_foundation:       "M20"
+  reinforcement_steel_grade: "Fe500D"
+  bearing_type:              "ELASTOMERIC_NEOPRENE"
+  expansion_joint_type:      "BURIED_CONTINUOUS_DECK"
+
+# Box cell dimensions (IRC SP:13)
+box_geometry:
+  vent_width_m:    3.0     # clear opening width per cell
+  vent_height_m:   2.5     # clear opening height
+  wall_thickness_mm: 300   # sidewall/top-slab thickness
+  bottom_slab_mm:  400     # base slab thickness (heavier)
+  cells:           1       # number of cells
+  haunch_mm:       150     # corner haunch size

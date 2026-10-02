@@ -1,0 +1,12 @@
+{
+  "plugin_id":              "rcc_tbeam",
+  "version":                "1.0.0",
+  "name":                   "RCC T-Beam Bridge",
+  "description":            "Simply-supported RCC T-beam girder bridge per IRC:21-2000 / IRC:112-2020 for spans 6–30 m",
+  "bridge_types":           ["RCC_TBEAM"],
+  "span_range_m":           [6, 30],
+  "default_values_yaml":    "defaults.yaml",
+  "draw_overrides_module":  "draw_overrides",
+  "author":                 "BridgeCAD Team",
+  "requires_core":          ">=0.1.0"
+}

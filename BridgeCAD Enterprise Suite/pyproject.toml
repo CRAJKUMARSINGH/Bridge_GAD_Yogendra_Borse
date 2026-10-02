@@ -1,0 +1,49 @@
+[build-system]
+requires = ["setuptools>=68", "wheel", "setuptools-scm>=8.0"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools]
+packages = []
+
+[project]
+name = "bridgecad-enterprise"
+version = "0.1.0"
+description = "BridgeCAD Enterprise Suite — End-to-end parametric bridge engineering platform"
+readme = "BridgeCAD Enterprise Suite/README.md"
+requires-python = ">=3.11"
+authors = [{ name = "BridgeCAD Team" }]
+license = { text = "MIT" }
+dependencies = []
+
+[tool.ruff]
+line-length = 110
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "SIM"]
+ignore = ["E501"]
+
+[tool.mypy]
+python_version = "3.11"
+warn_return_any = true
+ignore_missing_imports = true
+explicit_package_bases = true
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["packages", "apps"]
+addopts = "-ra --strict-markers --tb=short"
+
+[tool.coverage.run]
+source_pkgs = ["bridgecad_core", "bridgecad_io", "bridgecad_draw",
+              "bridgecad_plugins", "bridgecad_bill", "bridgecad_qa",
+              "bridgecad_export", "bridgecad_ai", "bridgecad_infra"]
+
+[tool.pdm]
+[[tool.pdm.source]]
+name = "pypi"
+url = "https://pypi.org/simple"
+verify_ssl = true
+
+[tool.hatch.envs.default]
+dependencies = []

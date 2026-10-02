@@ -1,0 +1,38 @@
+# RCC T-Beam typical default values (IRC:21-2000, IRC:112-2020)
+# These are merged into the project_dict when this plugin is activated.
+
+superstructure:
+  deck_material:              "M30"
+  deck_thickness_mm:          200
+  wearing_coat_type:          "BITUMINOUS_CONCRETE_BC"
+  wearing_coat_thickness_mm:  65
+  girder_type:                "T_BEAM_RCC"
+  girder_depth_mm:            900      # span/depth ratio ~13 for 12m span
+  girder_spacing_m:           2.0
+  girders_per_deck_count:     4
+  camber_mm:                  20
+
+substructure:
+  pier_type:            "WALL"
+  pier_material:        "M25"
+  abutment_type:        "CANTILEVER"
+  abutment_material:    "M25"
+
+foundation_details:
+  type:              "PILE"
+  pile_type:         "BORED_CAST_IN_SITU"
+  pile_diameter_mm:  1000
+  piles_per_pier:    4
+
+materials:
+  concrete_superstructure:   "M30"
+  concrete_substructure:     "M25"
+  concrete_foundation:       "M25"
+  reinforcement_steel_grade: "Fe500D"
+  bearing_type:              "ELASTOMERIC_NEOPRENE"
+  expansion_joint_type:      "COMPRESSION_SEAL"
+
+# Span/depth ratios per IRC:21 Table 12
+span_depth_ratios:
+  simply_supported:   12      # IRC recommended 10-15
+  continuous:         15

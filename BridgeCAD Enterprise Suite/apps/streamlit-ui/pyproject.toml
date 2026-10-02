@@ -1,0 +1,31 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "bridgecad-streamlit-ui"
+version = "0.1.0"
+description = "BridgeCAD Enterprise — Streamlit Ultimate UI (15 tabs)"
+requires-python = ">=3.11"
+dependencies = [
+  "streamlit>=1.32.0",
+  "bridgecad-core @ file://../../packages/bridgecad-core",
+  "bridgecad-io @ file://../../packages/bridgecad-io",
+  "bridgecad-draw @ file://../../packages/bridgecad-draw",
+  "bridgecad-bill @ file://../../packages/bridgecad-bill",
+  "bridgecad-qa @ file://../../packages/bridgecad-qa",
+  "bridgecad-export @ file://../../packages/bridgecad-export",
+  "bridgecad-ai @ file://../../packages/bridgecad-ai",
+  "bridgecad-infra @ file://../../packages/bridgecad-infra",
+  "ezdxf>=1.4.0",
+  "matplotlib>=3.7.0",
+  "plotly>=5.17.0",
+  "pandas>=2.0.0",
+  "openpyxl>=3.1.0",
+]
+
+[tool.setuptools]
+packages = ["bridgecad_streamlit"]
+
+[tool.setuptools.package-dir]
+"" = "."

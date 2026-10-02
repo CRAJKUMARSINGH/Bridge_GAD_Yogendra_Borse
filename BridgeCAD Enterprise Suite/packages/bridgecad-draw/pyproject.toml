@@ -1,0 +1,23 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "bridgecad-draw"
+version = "0.1.0"
+description = "BridgeCAD Enterprise — 2D/3D drawing package: 5 engines × 7 sheets"
+requires-python = ">=3.11"
+dependencies = [
+  "ezdxf>=1.4.0",
+  "reportlab>=4.0.0",
+  "cairosvg>=2.7.0",
+  "matplotlib>=3.7.0",
+  "pillow>=10.0.0",
+  "bridgecad-core @ file://../bridgecad-core"
+]
+
+[tool.setuptools]
+packages = ["bridgecad_draw"]
+
+[tool.setuptools.package-dir]
+"" = "."

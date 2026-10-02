@@ -1,0 +1,23 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "bridgecad-ai"
+version = "0.1.0"
+description = "BridgeCAD Enterprise — ML/optimization layer: scipy optimizer, estimator, comparator, suggester"
+requires-python = ">=3.11"
+dependencies = [
+  "numpy>=1.26.0",
+  "scipy>=1.12.0",
+  "pandas>=2.0.0",
+  "scikit-learn>=1.4.0",
+  "matplotlib>=3.7.0",
+  "bridgecad-core @ file://../bridgecad-core"
+]
+
+[tool.setuptools]
+packages = ["bridgecad_ai"]
+
+[tool.setuptools.package-dir]
+"" = "."
