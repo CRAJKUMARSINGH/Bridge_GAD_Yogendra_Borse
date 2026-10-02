@@ -726,16 +726,16 @@ class Superstructure(BaseModel):
         description="Girder shape family (I / Box / T / Delta / Plate / Truss)",
     )
     girder_depth_mm: Optional[int] = DI(
-        "Nominal girder depth (excluding deck), millimetres",
-        ge=200, le=8000,
+        "Nominal girder depth (excluding deck), millimetres (0 = NA for slab/culvert)",
+        ge=0, le=8000,
     )
     girder_spacing_m: Optional[Decimal] = DM(
-        "Centre-to-centre girder spacing, m",
-        ge=Decimal("1"), le=Decimal("10"), dp=3,
+        "Centre-to-centre girder spacing, m (0 = NA for box/slab/culvert)",
+        ge=0, le=Decimal("10"), dp=3,
     )
     girders_per_deck_count: Optional[int] = DI(
-        "Number of longitudinal girders per deck (cross-section count)",
-        ge=1, le=30,
+        "Number of longitudinal girders per deck (cross-section count, 0 = NA)",
+        ge=0, le=30,
     )
     slab_type: Optional[SlabType] = Field(
         default=None,
@@ -850,6 +850,40 @@ class Superstructure(BaseModel):
         """Deck + wearing coat total thickness (mm)."""
         wc = self.wearing_coat_thickness_mm or 0
         return self.deck_thickness_mm + wc
+
+    # --- Conditional validators --------------------------------------------
+    _GIRDER_SST = frozenset({
+        "RCC_TBEAM", "PSC_IGIRDER", "PSC_U_GIRDER", "PSC_I_GIRDER_COMPOSITE",
+        "STEEL_PLATE_GIRDER", "STEEL_TRUSS", "STEEL_COMPOSITE",
+        "BALANCED_CANTILEVER", "INCREMENTALLY_LAUNCHED",
+    })
+    _BOX_SST = frozenset({
+        "PSC_BOX_GIRDER", "STEEL_BOX_GIRDER",
+    })
+    _CULVERT_SST = frozenset({
+        "BOX_CULVERT", "PIPE_CULVERT_SINGLE", "PIPE_CULVERT_MULTI",
+        "SLAB_CULVERT", "ARCH_CULVERT", "RCC_FRAME_CULVERT",
+    })
+
+    @model_validator(mode="after")
+    def _conditional_girder_floors(self):
+        sst = self.type.name if hasattr(self.type, "name") else str(self.type)
+        # Girder-bearing superstructures must have positive girder params
+        if sst in self._GIRDER_SST:
+            if self.girder_depth_mm is None or self.girder_depth_mm < 200:
+                raise ValueError(
+                    f"superstructure.type={sst} requires girder_depth_mm >= 200 (got {self.girder_depth_mm})"
+                )
+            if self.girder_spacing_m is None or self.girder_spacing_m < Decimal("1"):
+                raise ValueError(
+                    f"superstructure.type={sst} requires girder_spacing_m >= 1.0 (got {self.girder_spacing_m})"
+                )
+            if self.girders_per_deck_count is None or self.girders_per_deck_count < 1:
+                raise ValueError(
+                    f"superstructure.type={sst} requires girders_per_deck_count >= 1 (got {self.girders_per_deck_count})"
+                )
+        # Culverts / slab-only systems: 0 values accepted as N/A
+        return self
 
 
 # ===========================================================================
@@ -1030,16 +1064,16 @@ class FoundationDetails(BaseModel):
         description="Installation method sub-type",
     )
     pile_diameter_mm: Optional[int] = DI(
-        "Pile shaft diameter, millimetres (range 400..2000 IRC typical)",
-        ge=200, le=3000,
+        "Pile shaft diameter, millimetres (range 400..2000 IRC typical; 0 = NA for open/well)",
+        ge=0, le=3000,
     )
     pile_length_m: Optional[Decimal] = DM(
-        "Pile length (cut-off to tip), m (5..60 m range IRC)",
-        ge=Decimal("1"), le=Decimal("120"), dp=3,
+        "Pile length (cut-off to tip), m (5..60 m range IRC; 0 = NA for open/well)",
+        ge=0, le=Decimal("120"), dp=3,
     )
     piles_per_pier: Optional[int] = DI(
-        "Number of piles supporting a single pier cap",
-        ge=1, le=100,
+        "Number of piles supporting a single pier cap (0 = NA for open/well)",
+        ge=0, le=100,
     )
     pile_group_config: Optional[str] = DS(
         "Pile group layout string e.g. 3x3, 4x2, 6x2@2.5m c/c",
@@ -1047,11 +1081,11 @@ class FoundationDetails(BaseModel):
     )
     pile_spacing_m: Optional[Decimal] = DM(
         "Centre-to-centre pile spacing (typically 2.5 x diameter), m",
-        ge=Decimal("0.5"), le=Decimal("10"), dp=3,
+        ge=0, le=Decimal("10"), dp=3,
     )
     pile_cap_thickness_mm: Optional[int] = DI(
-        "Pile cap thickness, millimetres (>= 1.5x pile_diameter)",
-        ge=300, le=6000,
+        "Pile cap thickness, millimetres (>= 1.5x pile_diameter; 0 = NA)",
+        ge=0, le=6000,
     )
     pile_cutoff_level_m: Optional[Decimal] = DM(
         "Pile cut-off level (RL), m",

@@ -7,9 +7,24 @@ M1 Week 1 Day 2: Sections 7–10 (Hydraulic, Materials, Drawing, Load/Seismic/Wi
 
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass
 from enum import Enum, IntEnum
 from typing import Any
+
+
+# ===========================================================================
+# Fuzzy normalisation for enum name/value matching
+# ===========================================================================
+
+_SEP_RE = re.compile(r"[\s_\-:/]+")
+
+
+def _fuzzy_norm(s: str) -> str:
+    """Normalise a string so underscores / hyphens / colons / slashes / spaces
+    all become a single underscore, then uppercase, for tolerant matching
+    (e.g. ``IRC_112_2020`` ``IRC:112-2020`` ``IRC 112 / 2020`` all match)."""
+    return _SEP_RE.sub("_", s.strip()).upper()
 
 
 # ===========================================================================
@@ -18,14 +33,94 @@ from typing import Any
 
 
 class StrEnum(str, Enum):
-    """String-valued enum base (backwards-compat with all existing consumers)."""
+    """String-valued enum base (backwards-compat with all existing consumers).
+
+    Pydantic deserialisation accepts three forms (case-insensitive, fuzzy):
+      1. exact Enum.value match
+      2. exact Enum.name match
+      3. normalised match (``_`` / ``-`` / ``:`` / ``/`` / whitespace interchangeable)
+    """
 
     def __str__(self) -> str:
         return str(self.value)
 
+    @classmethod
+    def __get_pydantic_core_schema__(cls, source_type: Any, handler: Any) -> Any:
+        from pydantic_core import core_schema
+
+        def _coerce(v: Any) -> "StrEnum":
+            if isinstance(v, cls):
+                return v
+            if v is None:
+                raise TypeError("expected a string, got None")
+            if isinstance(v, str):
+                s = v
+            else:
+                try:
+                    s = str(v)
+                except Exception as exc:  # pragma: no cover - unlikely
+                    raise TypeError(
+                        f"cannot convert {type(v).__name__} to {cls.__name__}"
+                    ) from exc
+
+            if s in cls._value2member_map_:
+                return cls(s)
+
+            # Exact name match (case-insensitive)
+            su = s.strip()
+            for m in cls:
+                if m.name.upper() == su.upper():
+                    return m
+            # Exact value match (case-insensitive)
+            for m in cls:
+                if str(m.value).strip().upper() == su.upper():
+                    return m
+
+            # Fuzzy normalised match
+            fuzzy = _fuzzy_norm(s)
+            for m in cls:
+                if _fuzzy_norm(m.name) == fuzzy or _fuzzy_norm(str(m.value)) == fuzzy:
+                    return m
+
+            # Build helpful error
+            names = [m.name for m in cls]
+            values = [str(m.value) for m in cls]
+            raise ValueError(
+                f"{s!r} is not a valid {cls.__name__}. "
+                f"Accepted names={names[:25]}{'...' if len(names) > 25 else ''}; "
+                f"accepted values={values[:25]}{'...' if len(values) > 25 else ''}"
+            )
+
+        return core_schema.no_info_plain_validator_function(
+            _coerce,
+            serialization=core_schema.to_string_ser_schema(),
+        )
+
 
 class IntEnumStrict(IntEnum):
     """Strict int enum base."""
+
+    @classmethod
+    def __get_pydantic_core_schema__(cls, source_type: Any, handler: Any) -> Any:
+        from pydantic_core import core_schema
+
+        def _coerce(v: Any) -> "IntEnumStrict":
+            if isinstance(v, cls):
+                return v
+            try:
+                iv = int(v)
+            except Exception as exc:
+                raise TypeError(f"expected int for {cls.__name__}, got {type(v).__name__}") from exc
+            if iv in cls._value2member_map_:
+                return cls(iv)
+            names = [m.name for m in cls]
+            vals = [m.value for m in cls]
+            raise ValueError(
+                f"{iv!r} is not a valid {cls.__name__}. Names={names}; Values={vals}"
+            )
+
+        return core_schema.no_info_plain_validator_function(_coerce)
+
 
 
 @dataclass(frozen=True)
@@ -3230,6 +3325,7 @@ class DrawingScale(IntEnumStrict):
 
 class LayerStandard(LabeledEnum):
     IRC = "IRC_SP55"
+    IRC_SP55_2019 = "IRC_SP55_2019"
     CPWD = "CPWD_SPEC"
     NHAI = "NHAI"
     MORTH = "MORTH"
